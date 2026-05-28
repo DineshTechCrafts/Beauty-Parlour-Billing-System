@@ -352,131 +352,146 @@ export const BillingTab: React.FC<BillingTabProps> = ({
                 </div>
 
                 {items.length > 0 ? (
-                    <div className="item-stack">
-                        {items.map(item => {
-                            const manualService = !isProduct && (item.mode ?? 'catalog') === 'manual';
-                            const remainingSessions = !isProduct && item.description.trim()
-                                ? (() => {
-                                    const clientKey = clientName.trim();
-                                    const serviceKey = item.description.trim();
-                                    const record = sessions?.[clientKey]?.[serviceKey];
-                                    const total = Number(item.totalSittings || 1);
-                                    if (!record) {
-                                        return total;
-                                    }
-                                    return Math.max(0, Number(record.total || total) - Number(record.completed || 0));
-                                })()
-                                : null;
+                    <table className="billing-table">
+                        <thead>
+                            {isProduct ? (
+                                <tr>
+                                    <th className="col-desc" style={{ width: '45%' }}>Product Description</th>
+                                    <th className="col-price" style={{ width: '20%' }}>Price (₹)</th>
+                                    <th className="col-qty" style={{ width: '12%' }}>Qty</th>
+                                    <th className="col-disc" style={{ width: '12%' }}>Disc %</th>
+                                    <th className="col-amount" style={{ width: '18%', textAlign: 'right' }}>Amount</th>
+                                    <th className="col-action" style={{ width: '5%' }}></th>
+                                </tr>
+                            ) : (
+                                <tr>
+                                    <th className="col-desc">Service Description</th>
+                                    <th className="col-price">Price (₹)</th>
+                                    <th className="col-qty">Qty</th>
+                                    <th className="col-disc">Disc %</th>
+                                    <th className="col-sessions">Sessions (Visits/Plan)</th>
+                                    <th className="col-payment">Payment</th>
+                                    <th className="col-amount" style={{ textAlign: 'right' }}>Amount</th>
+                                    <th className="col-action"></th>
+                                </tr>
+                            )}
+                        </thead>
+                        <tbody>
+                            {items.map(item => {
+                                const manualService = !isProduct && (item.mode ?? 'catalog') === 'manual';
+                                const remainingSessions = !isProduct && item.description.trim()
+                                    ? (() => {
+                                        const clientKey = clientName.trim();
+                                        const serviceKey = item.description.trim();
+                                        const record = sessions?.[clientKey]?.[serviceKey];
+                                        const total = Number(item.totalSittings || 1);
+                                        if (!record) {
+                                            return total;
+                                        }
+                                        return Math.max(0, Number(record.total || total) - Number(record.completed || 0));
+                                    })()
+                                    : null;
 
-                            return (
-                                <div className="service-card" key={item.id}>
-                                    <div className="service-row">
-                                        <div className="service-left">
-                                            <div className="field-block">
-                                                <label>{isProduct ? 'Product' : 'Service'}</label>
-                                                {(item.mode ?? 'catalog') === 'manual' ? (
-                                                    <input
-                                                        type="text"
-                                                        className="form-control"
-                                                        value={item.description}
-                                                        onChange={(e) => updateItem(item.id, 'description', e.target.value, isProduct)}
-                                                    />
-                                                ) : (
-                                                    <ComboSelect
-                                                        value={item.catalogId || item.description}
-                                                        options={catalogChoices}
-                                                        placeholder={`Select or type ${isProduct ? 'Product' : 'Service'}...`}
-                                                        onChange={(id, rawValue) => {
-                                                            if (id) {
-                                                                const match = catalogChoices.find(c => c.id === id);
-                                                                if (match) {
-                                                                    selectCatalogItem(item.id, match, isProduct);
-                                                                }
-                                                            } else {
-                                                                if (!rawValue) {
-                                                                    clearCatalogItem(item.id, isProduct);
-                                                                } else {
-                                                                    updateItem(item.id, 'description', rawValue, isProduct);
-                                                                }
-                                                            }
-                                                        }}
-                                                    />
-                                                )}
-                                            </div>
+                                return (
+                                    <tr key={item.id}>
+                                        {/* Description */}
+                                        <td className="col-desc">
                                             {(item.mode ?? 'catalog') === 'manual' ? (
-                                                <p className="meta-line">Manual entry retained from an older bill</p>
+                                                <input
+                                                    type="text"
+                                                    className="form-control"
+                                                    value={item.description}
+                                                    onChange={(e) => updateItem(item.id, 'description', e.target.value, isProduct)}
+                                                />
                                             ) : (
-                                                item.catalogId && (
-                                                    <p className="meta-line">
-                                                        {(() => {
-                                                            const catalogMeta = catalogChoices.find(c => c.id === item.catalogId);
-                                                            if (!catalogMeta) {
-                                                                return null;
+                                                <ComboSelect
+                                                    value={item.catalogId || item.description}
+                                                    options={catalogChoices}
+                                                    placeholder={`Select or type ${isProduct ? 'Product' : 'Service'}...`}
+                                                    onChange={(id, rawValue) => {
+                                                        if (id) {
+                                                            const match = catalogChoices.find(c => c.id === id);
+                                                            if (match) {
+                                                                selectCatalogItem(item.id, match, isProduct);
                                                             }
-                                                            const segments = [catalogMeta.category];
-                                                            if (catalogMeta.priceType) {
-                                                                segments.push(catalogMeta.priceType);
+                                                        } else {
+                                                            if (!rawValue) {
+                                                                clearCatalogItem(item.id, isProduct);
+                                                            } else {
+                                                                updateItem(item.id, 'description', rawValue, isProduct);
                                                             }
-                                                            if (catalogMeta.notes) {
-                                                                segments.push(catalogMeta.notes);
-                                                            }
-                                                            return segments.filter(Boolean).join(' · ');
-                                                        })()}
-                                                    </p>
-                                                )
+                                                        }
+                                                    }}
+                                                />
+                                            )}
+                                            {item.catalogId && (
+                                                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                                                    {(() => {
+                                                        const catalogMeta = catalogChoices.find(c => c.id === item.catalogId);
+                                                        if (!catalogMeta) {
+                                                            return null;
+                                                        }
+                                                        const segments = [catalogMeta.category];
+                                                        if (catalogMeta.priceType) {
+                                                            segments.push(catalogMeta.priceType);
+                                                        }
+                                                        if (catalogMeta.notes) {
+                                                            segments.push(catalogMeta.notes);
+                                                        }
+                                                        return segments.filter(Boolean).join(' · ');
+                                                    })()}
+                                                </div>
                                             )}
                                             {!isProduct && remainingSessions !== null && (
-                                                <p className="meta-line">
+                                                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>
                                                     Remaining {remainingSessions} sessions of plan {Number(item.totalSittings || 1)}
-                                                </p>
+                                                </div>
                                             )}
-                                        </div>
+                                        </td>
 
-                                        <div className="service-middle">
-                                            <div className="field-block">
-                                                <label>Price</label>
-                                                {isProduct || manualService ? (
-                                                    <input
-                                                        type="number"
-                                                        className="form-control"
-                                                        value={item.price || ''}
-                                                        onChange={(e) => updateItem(item.id, 'price', Number(e.target.value), isProduct)}
-                                                    />
-                                                ) : (
-                                                    <div className="readonly-field">₹{Number(item.price || 0).toLocaleString()}</div>
-                                                )}
-                                            </div>
-
-                                            <div className="field-block compact">
-                                                <label>Qty</label>
+                                        {/* Price */}
+                                        <td className="col-price">
+                                            {isProduct || manualService ? (
                                                 <input
                                                     type="number"
                                                     className="form-control"
-                                                    value={item.quantity || ''}
-                                                    onChange={(e) => updateItem(item.id, 'quantity', Number(e.target.value), isProduct)}
+                                                    value={item.price || ''}
+                                                    onChange={(e) => updateItem(item.id, 'price', Number(e.target.value), isProduct)}
                                                 />
-                                            </div>
-
-                                            {!isProduct && (
-                                                <div className="field-block compact">
-                                                    <label>Discount(%)</label>
-                                                    <input
-                                                        type="number"
-                                                        className="form-control"
-                                                        value={item.discount || ''}
-                                                        onChange={(e) => updateItem(item.id, 'discount', Number(e.target.value), isProduct)}
-                                                        placeholder="0"
-                                                    />
-                                                </div>
+                                            ) : (
+                                                <div className="value-label">₹{Number(item.price || 0).toLocaleString()}</div>
                                             )}
+                                        </td>
 
-                                            {!isProduct && (
-                                                <div className="field-block">
-                                                    <label>Sessions Today</label>
+                                        {/* Quantity */}
+                                        <td className="col-qty">
+                                            <input
+                                                type="number"
+                                                className="form-control qty-input"
+                                                value={item.quantity || ''}
+                                                onChange={(e) => updateItem(item.id, 'quantity', Number(e.target.value), isProduct)}
+                                            />
+                                        </td>
+
+                                        {/* Discount */}
+                                        <td className="col-disc">
+                                            <input
+                                                type="number"
+                                                className="form-control disc-input"
+                                                value={item.discount || ''}
+                                                onChange={(e) => updateItem(item.id, 'discount', Number(e.target.value), isProduct)}
+                                                placeholder="0"
+                                            />
+                                        </td>
+
+                                        {/* Sittings (Services only) */}
+                                        {!isProduct && (
+                                            <td className="col-sessions">
+                                                <div className="session-grid">
                                                     <input
                                                         type="number"
                                                         min={1}
-                                                        className="form-control"
+                                                        className="form-control session-mini-input"
                                                         value={item.completedSittings || ''}
                                                         onChange={(e) =>
                                                             updateItem(
@@ -487,68 +502,67 @@ export const BillingTab: React.FC<BillingTabProps> = ({
                                                             )
                                                         }
                                                     />
-                                                    <div className="session-plan-meta" style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
-                                                        <span style={{ fontSize: '0.85rem', color: '#64748b' }}>Plan of</span>
-                                                        <input
-                                                            type="number"
-                                                            min={Math.max(1, Number(item.completedSittings || 1))}
-                                                            className="form-control"
-                                                            style={{ width: '50px', padding: '2px 4px', height: '24px', fontSize: '0.85rem' }}
-                                                            value={item.totalSittings || ''}
-                                                            onChange={(e) =>
-                                                                updateItem(
-                                                                    item.id,
-                                                                    'totalSittings',
-                                                                    Number(e.target.value),
-                                                                    false
-                                                                )
-                                                            }
-                                                        />
-                                                        <span style={{ fontSize: '0.85rem', color: '#64748b' }}>sittings</span>
-                                                    </div>
+                                                    <span>of</span>
+                                                    <input
+                                                        type="number"
+                                                        min={Math.max(1, Number(item.completedSittings || 1))}
+                                                        className="form-control session-mini-input"
+                                                        value={item.totalSittings || ''}
+                                                        onChange={(e) =>
+                                                            updateItem(
+                                                                item.id,
+                                                                'totalSittings',
+                                                                Number(e.target.value),
+                                                                false
+                                                            )
+                                                        }
+                                                    />
                                                 </div>
-                                            )}
-                                        </div>
+                                            </td>
+                                        )}
 
-                                        <div className="service-right">
-                                            {!isProduct && (
-                                                <div className="field-block">
-                                                    <label>Payment</label>
-                                                    <div className="payment-toggle">
-                                                        <button
-                                                            type="button"
-                                                            className={item.paymentMode === 'per_sitting' ? 'active' : ''}
-                                                            onClick={() => updateItem(item.id, 'paymentMode', 'per_sitting', false)}
-                                                        >
-                                                            Per Sitting
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            className={item.paymentMode === 'full' ? 'active' : ''}
-                                                            onClick={() => updateItem(item.id, 'paymentMode', 'full', false)}
-                                                        >
-                                                            Full
-                                                        </button>
-                                                    </div>
+                                        {/* Payment Toggle (Services only) */}
+                                        {!isProduct && (
+                                            <td className="col-payment">
+                                                <div className="payment-toggle">
+                                                    <button
+                                                        type="button"
+                                                        className={item.paymentMode === 'per_sitting' ? 'active' : ''}
+                                                        onClick={() => updateItem(item.id, 'paymentMode', 'per_sitting', false)}
+                                                    >
+                                                        Sitting
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        className={item.paymentMode === 'full' ? 'active' : ''}
+                                                        onClick={() => updateItem(item.id, 'paymentMode', 'full', false)}
+                                                    >
+                                                        Full
+                                                    </button>
                                                 </div>
-                                            )}
-                                            <div className="field-block amount-block">
-                                                <label>Amount</label>
-                                                <div className="amount-value">₹{Number(item.amount || 0).toLocaleString()}</div>
-                                            </div>
+                                            </td>
+                                        )}
+
+                                        {/* Total Amount */}
+                                        <td className="col-amount">
+                                            <span className="amount-label">₹{Number(item.amount || 0).toLocaleString()}</span>
+                                        </td>
+
+                                        {/* Remove Button */}
+                                        <td className="col-action">
                                             <button
-                                                className="icon-button"
+                                                className="btn-danger-icon"
                                                 type="button"
                                                 onClick={() => removeItem(item.id, isProduct)}
                                             >
                                                 <Icons.Trash />
                                             </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
                 ) : (
                     <div className="empty-state-block">
                         <p>No {isProduct ? 'products' : 'services'} added yet.</p>
@@ -565,22 +579,22 @@ export const BillingTab: React.FC<BillingTabProps> = ({
         <div className="billing-layout">
             <div className="left-panel">
                 <div className="card no-print guest-card">
-                    <div className="section-heading">
+                    <div className="section-heading spread" style={{ marginBottom: '1.25rem' }}>
                         <div>
                             <h3 className="flow-heading">1. Customer Details</h3>
                             <p className="section-caption">Capture who you’re serving today</p>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            {returningCustomer && <span className="badge badge-returning">Returning Customer</span>}
+                            {returningCustomer && <span className="badge-returning">Returning Customer</span>}
                             <div className="bill-id-pill">ID: #{currentBillId}</div>
                         </div>
                     </div>
-                    <div className="row">
-                        <div className="col form-group">
+                    <div className="client-grid">
+                        <div className="form-group">
                             <label>Full Name</label>
                             <input type="text" className="form-control" placeholder="John Doe" value={clientName} onChange={e => setClientName(e.target.value)} />
                         </div>
-                        <div className="col form-group">
+                        <div className="form-group">
                             <label>Phone Number</label>
                             <div style={{ display: 'flex' }}>
                                 <span style={{
@@ -608,58 +622,15 @@ export const BillingTab: React.FC<BillingTabProps> = ({
                                 />
                             </div>
                         </div>
-                    </div>
-                    <div className="form-group" style={{ marginBottom: 0 }}>
-                        <label>Address / Session Notes</label>
-                        <input type="text" className="form-control" placeholder="123 Street, City..." value={clientAddress} onChange={e => setClientAddress(e.target.value)} />
+                        <div className="form-group">
+                            <label>Address / Session Notes</label>
+                            <input type="text" className="form-control" placeholder="123 Street, City..." value={clientAddress} onChange={e => setClientAddress(e.target.value)} />
+                        </div>
                     </div>
                 </div>
 
                 {renderItemSection(serviceItems, false, 'Services', '2. Services')}
                 {renderItemSection(productItems, true, 'Products', '3. Products')}
-
-                <div className="bottom-bar card no-print" style={{ alignItems: 'flex-end' }}>
-                    <div className="left-controls">
-                        <div className="gst-control">
-                            <label className="gst-toggle">
-                                <input
-                                    type="checkbox"
-                                    checked={applyGST}
-                                    onChange={(e) => setApplyGST(e.target.checked)}
-                                />
-                                Apply GST (Products Only)
-                            </label>
-                            <div className="gst-inputs">
-                                <div className="field-block compact">
-                                    <label>CGST %</label>
-                                    <input
-                                        type="number"
-                                        className="form-control"
-                                        value={applyGST ? gstRate : ''}
-                                        onChange={(e) => setGstRate(Number(e.target.value))}
-                                        disabled={!applyGST}
-                                    />
-                                </div>
-                                <div className="field-block compact">
-                                    <label>SGST %</label>
-                                    <input
-                                        type="number"
-                                        className="form-control"
-                                        value={applyGST ? gstRate : ''}
-                                        onChange={(e) => setGstRate(Number(e.target.value))}
-                                        disabled={!applyGST}
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="right-action">
-                        <button className="btn btn-primary produce-bill-btn" onClick={handleProduceBill}>
-                            <Icons.Save /> Generate Invoice
-                        </button>
-                        <span className="action-note">Confirming will deduct inventory and create the PDF.</span>
-                    </div>
-                </div>
             </div>
 
             <div className="right-panel">
@@ -690,11 +661,49 @@ export const BillingTab: React.FC<BillingTabProps> = ({
                             <strong>{formatCurrency(summaryData.gstTotal)}</strong>
                         </p>
                     </div>
-                    <hr />
+
+                    {/* Integrated GST Controls */}
+                    <div className="tax-control-box">
+                        <label className="tax-toggle-label">
+                            <input
+                                type="checkbox"
+                                checked={applyGST}
+                                onChange={(e) => setApplyGST(e.target.checked)}
+                            />
+                            &nbsp; Apply GST (Products Only)
+                        </label>
+                        <div className="tax-input-grid">
+                            <div className="tax-field">
+                                <span>CGST</span>
+                                <input
+                                    type="number"
+                                    value={applyGST ? gstRate : ''}
+                                    onChange={(e) => setGstRate(Number(e.target.value))}
+                                    disabled={!applyGST}
+                                />
+                                <span>%</span>
+                            </div>
+                            <div className="tax-field">
+                                <span>SGST</span>
+                                <input
+                                    type="number"
+                                    value={applyGST ? gstRate : ''}
+                                    onChange={(e) => setGstRate(Number(e.target.value))}
+                                    disabled={!applyGST}
+                                />
+                                <span>%</span>
+                            </div>
+                        </div>
+                    </div>
+
                     <div className="summary-total-row">
                         <span>Total Due</span>
                         <span className="total">{formatCurrency(summaryData.grandTotal)}</span>
                     </div>
+
+                    <button className="btn btn-primary btn-checkout" onClick={handleProduceBill}>
+                        <Icons.Save /> Generate Invoice
+                    </button>
                 </div>
             </div>
         </div>

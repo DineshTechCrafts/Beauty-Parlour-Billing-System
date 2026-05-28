@@ -9,9 +9,6 @@ interface CatalogTabProps {
 export const CatalogTab: React.FC<CatalogTabProps> = ({ inventory }) => {
     const services = inventory.filter(i => i.type === 'Service').sort((a, b) => (a.description || '').localeCompare(b.description || ''));
 
-    // Group by category
-    const categories = Array.from(new Set(services.map(s => s.category)));
-
     return (
         <div className="catalog-grid no-print">
             {services.map((item) => (
