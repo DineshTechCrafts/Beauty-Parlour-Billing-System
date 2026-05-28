@@ -71,14 +71,15 @@ const ComboSelect: React.FC<{
 
     const filtered = options.filter(o => 
         o.description.toLowerCase().includes(search.toLowerCase()) || 
-        (o.category || '').toLowerCase().includes(search.toLowerCase())
+        (o.category || '').toLowerCase().includes(search.toLowerCase()) ||
+        (o.id || '').toLowerCase().includes(search.toLowerCase())
     );
 
     return (
         <div ref={wrapperRef} style={{ position: 'relative', width: '100%' }}>
             <input 
                 className="form-control"
-                style={{ fontSize: '1.05rem', fontWeight: 500 }}
+                style={{ fontSize: '0.85rem', fontWeight: 500 }}
                 placeholder={placeholder}
                 value={displayValue || ''}
                 onChange={e => { 
@@ -117,8 +118,11 @@ const ComboSelect: React.FC<{
                             onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#f8fafc')}
                             onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
                         >
-                            <span style={{ fontSize: '1.05rem', fontWeight: 500, color: 'var(--text-primary)' }}>{opt.description}</span>
-                            <span style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>₹{Number(opt.price).toLocaleString()}</span>
+                            <span style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--text-primary)' }}>
+                                {opt.description}
+                                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginLeft: '6px' }}>({opt.id})</span>
+                            </span>
+                            <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>₹{Number(opt.price).toLocaleString()}</span>
                         </div>
                     ))}
                     {filtered.length === 0 && <div style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)' }}>Type to set as manual entry</div>}

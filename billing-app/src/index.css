@@ -466,14 +466,30 @@ tr:last-child td {
 }
 
 /* Column templates for services and products */
-.col-desc { width: 35%; }
-.col-price { width: 14%; }
-.col-qty { width: 9%; }
-.col-disc { width: 9%; }
-.col-sessions { width: 16%; }
-.col-payment { width: 15%; }
-.col-amount { width: 12%; text-align: right; }
-.col-action { width: 6%; text-align: center; }
+.col-desc { width: 42%; }
+.col-price { width: 10%; }
+.col-qty { width: 6%; }
+.col-disc { width: 7%; }
+.col-sessions { width: 14%; }
+.col-payment { width: 10%; }
+.col-amount { width: 8%; text-align: right; }
+.col-action { width: 3%; text-align: center; }
+
+.billing-table .form-control {
+  padding: 0.45rem 0.5rem !important;
+  font-size: 0.85rem !important;
+}
+
+/* Hide number input spinners (up/down arrows) inside the table to prevent number clipping */
+.billing-table input::-webkit-outer-spin-button,
+.billing-table input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.billing-table input[type=number] {
+  -moz-appearance: textfield;
+}
 
 .value-label {
   font-weight: 600;

@@ -66,7 +66,8 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ inventory, saveInven
     const filtered = inventory.filter(i => {
         const matchesType = filterType === 'All' || i.type === filterType;
         const matchesSearch = (i.description || '').toLowerCase().includes(search.toLowerCase()) ||
-            (i.category || '').toLowerCase().includes(search.toLowerCase());
+            (i.category || '').toLowerCase().includes(search.toLowerCase()) ||
+            (i.id || '').toLowerCase().includes(search.toLowerCase());
         return matchesType && matchesSearch;
     }).sort((a, b) => (a.description || '').localeCompare(b.description || ''));
 
