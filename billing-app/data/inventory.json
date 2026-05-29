@@ -733,6 +733,200 @@
   },
   "manualItems": [
     {
+      "id": "1780063643381",
+      "type": "Service",
+      "category": "General",
+      "description": "New Service",
+      "price": 0,
+      "source": "manual"
+    },
+    {
+      "id": "1780063639921",
+      "type": "Service",
+      "category": "General",
+      "description": "New Service",
+      "price": 0,
+      "source": "manual"
+    },
+    {
+      "id": "1780063639702",
+      "type": "Service",
+      "category": "General",
+      "description": "New Service",
+      "price": 0,
+      "source": "manual"
+    },
+    {
+      "id": "1780063638844",
+      "type": "Service",
+      "category": "General",
+      "description": "New Service",
+      "price": 0,
+      "source": "manual"
+    },
+    {
+      "id": "1780063633909",
+      "type": "Service",
+      "category": "General",
+      "description": "New Service",
+      "price": 0,
+      "source": "manual"
+    },
+    {
+      "id": "1780063632165",
+      "type": "Service",
+      "category": "General",
+      "description": "New Service",
+      "price": 0,
+      "source": "manual"
+    },
+    {
+      "id": "1780063631943",
+      "type": "Service",
+      "category": "General",
+      "description": "New Service",
+      "price": 0,
+      "source": "manual"
+    },
+    {
+      "id": "1780063631789",
+      "type": "Service",
+      "category": "General",
+      "description": "New Service",
+      "price": 0,
+      "source": "manual"
+    },
+    {
+      "id": "1780063631628",
+      "type": "Service",
+      "category": "General",
+      "description": "New Service",
+      "price": 0,
+      "source": "manual"
+    },
+    {
+      "id": "1780063630094",
+      "type": "Service",
+      "category": "General",
+      "description": "New Service",
+      "price": 0,
+      "source": "manual"
+    },
+    {
+      "id": "1780063629874",
+      "type": "Service",
+      "category": "General",
+      "description": "New Service",
+      "price": 0,
+      "source": "manual"
+    },
+    {
+      "id": "1780063629712",
+      "type": "Service",
+      "category": "General",
+      "description": "New Service",
+      "price": 0,
+      "source": "manual"
+    },
+    {
+      "id": "1780063629561",
+      "type": "Service",
+      "category": "General",
+      "description": "New Service",
+      "price": 0,
+      "source": "manual"
+    },
+    {
+      "id": "1780063629402",
+      "type": "Service",
+      "category": "General",
+      "description": "New Service",
+      "price": 0,
+      "source": "manual"
+    },
+    {
+      "id": "1780063629250",
+      "type": "Service",
+      "category": "General",
+      "description": "New Service",
+      "price": 0,
+      "source": "manual"
+    },
+    {
+      "id": "1780063627707",
+      "type": "Service",
+      "category": "General",
+      "description": "New Service",
+      "price": 0,
+      "source": "manual"
+    },
+    {
+      "id": "1780063626434",
+      "type": "Service",
+      "category": "General",
+      "description": "New Service",
+      "price": 0,
+      "source": "manual"
+    },
+    {
+      "id": "1780062899518",
+      "type": "Service",
+      "category": "General",
+      "description": "New Service",
+      "price": 0,
+      "source": "manual"
+    },
+    {
+      "id": "1780062899296",
+      "type": "Service",
+      "category": "General",
+      "description": "New Service",
+      "price": 0,
+      "source": "manual"
+    },
+    {
+      "id": "1780062898477",
+      "type": "Product",
+      "category": "Retail",
+      "description": "New Product",
+      "price": 0,
+      "quantity": 0,
+      "source": "manual"
+    },
+    {
+      "id": "1780062897017",
+      "type": "Product",
+      "category": "Retail",
+      "description": "New Product",
+      "price": 0,
+      "quantity": 0,
+      "source": "manual"
+    },
+    {
+      "id": "1780062895955",
+      "type": "Service",
+      "category": "General",
+      "description": "New Service",
+      "price": 0,
+      "source": "manual"
+    },
+    {
+      "id": "1780062895629",
+      "type": "Service",
+      "category": "General",
+      "description": "New Service",
+      "price": 0,
+      "source": "manual"
+    },
+    {
+      "id": "1780062894418",
+      "type": "Service",
+      "category": "General",
+      "description": "New Service",
+      "price": 0,
+      "source": "manual"
+    },
+    {
       "id": "1780058184567",
       "type": "Product",
       "category": "Retail",

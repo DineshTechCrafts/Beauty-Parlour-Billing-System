@@ -44,6 +44,8 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ inventory, saveInven
     };
 
     const addRow = (type: 'Product' | 'Service') => {
+        setSearch('');
+        setFilterType('All');
         const newItem: InventoryItem = {
             id: Date.now().toString(),
             type: type,
@@ -65,11 +67,27 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ inventory, saveInven
 
     const filtered = inventory.filter(i => {
         const matchesType = filterType === 'All' || i.type === filterType;
-        const matchesSearch = (i.description || '').toLowerCase().includes(search.toLowerCase()) ||
-            (i.category || '').toLowerCase().includes(search.toLowerCase()) ||
-            (i.id || '').toLowerCase().includes(search.toLowerCase());
+        
+        const matchesSearch = (() => {
+            if (!search) return true;
+            
+            // 1. ID check (exact substring match, preserving case and spaces)
+            if ((i.id || '').includes(search)) return true;
+            
+            // 2. Name & Category check (ignoring case and spaces entirely)
+            const cleanSearch = search.replace(/\s+/g, '').toLowerCase();
+            const cleanDesc = (i.description || '').replace(/\s+/g, '').toLowerCase();
+            const cleanCat = (i.category || '').replace(/\s+/g, '').toLowerCase();
+            
+            return cleanDesc.includes(cleanSearch) || cleanCat.includes(cleanSearch);
+        })();
+
         return matchesType && matchesSearch;
-    }).sort((a, b) => (a.description || '').localeCompare(b.description || ''));
+    }).sort((a, b) => {
+        if (a.id === editingId) return -1;
+        if (b.id === editingId) return 1;
+        return (a.description || '').localeCompare(b.description || '');
+    });
 
     return (
         <div className="catalog-mgmt-flow">
@@ -102,10 +120,11 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ inventory, saveInven
                 <table>
                     <thead>
                         <tr>
-                            <th style={{ width: '150px' }}>Item Type</th>
+                            <th style={{ width: '130px' }}>Item Type</th>
+                            <th style={{ width: '110px' }}>ID</th>
                             <th>Description</th>
-                            <th style={{ width: '150px' }}>Unit Price (₹)</th>
-                            <th style={{ width: '150px' }}>Stock Info</th>
+                            <th style={{ width: '130px' }}>Unit Price (₹)</th>
+                            <th style={{ width: '130px' }}>Stock Info</th>
                             <th style={{ width: '100px', textAlign: 'center' }}>Actions</th>
                         </tr>
                     </thead>
@@ -119,16 +138,21 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ inventory, saveInven
                                 {isEditing ? (
                                     <>
                                         <td>
-                                            <select
-                                                className="form-control"
-                                                value={editItem?.type}
-                                                disabled={!isManualEditing}
-                                                onChange={e => setEditItem(prev => prev ? { ...prev, type: e.target.value } : null)}
-                                                style={{ padding: '0.4rem', fontSize: '0.8rem' }}
-                                            >
-                                                <option value="Service">Service</option>
-                                                <option value="Product">Product</option>
-                                            </select>
+                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '4px' }}>
+                                                <select
+                                                    className="form-control"
+                                                    value={editItem?.type}
+                                                    disabled={!isManualEditing}
+                                                    onChange={e => setEditItem(prev => prev ? { ...prev, type: e.target.value } : null)}
+                                                    style={{ padding: '0.4rem', fontSize: '0.8rem', width: '100%' }}
+                                                >
+                                                    <option value="Service">Service</option>
+                                                    <option value="Product">Product</option>
+                                                </select>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span style={{ fontFamily: 'monospace', fontSize: '0.85rem', color: 'var(--text-muted)' }}>{item.id}</span>
                                         </td>
                                         <td>
                                             <input
@@ -178,11 +202,13 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ inventory, saveInven
                                 ) : (
                                     <>
                                         <td>
-                                            <span className={`badge ${item.type === 'Service' ? 'badge-service' : 'badge-product'}`}>{item.type}</span>
-                                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '4px' }}>{item.category}</div>
-                                            {item.source !== 'manual' && (
-                                                <div style={{ fontSize: '0.65rem', color: '#94a3b8', marginTop: '0.25rem' }}>Catalog</div>
-                                            )}
+                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                                                <span className={`badge ${item.type === 'Service' ? 'badge-service' : 'badge-product'}`}>{item.type}</span>
+                                                <div style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-secondary)', marginTop: '6px' }}>{item.category}</div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span style={{ fontFamily: 'monospace', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{item.id}</span>
                                         </td>
                                         <td><span style={{ fontWeight: 600 }}>{item.description}</span></td>
                                         <td><span style={{ fontWeight: 700, color: 'var(--secondary)' }}>₹{item.price.toLocaleString()}</span></td>
@@ -208,7 +234,7 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ inventory, saveInven
                         );
                         })}
                         {filtered.length === 0 && (
-                            <tr><td colSpan={5} style={{ textAlign: 'center', padding: '4rem', color: 'var(--text-muted)' }}>Inventory is empty.</td></tr>
+                            <tr><td colSpan={6} style={{ textAlign: 'center', padding: '4rem', color: 'var(--text-muted)' }}>Inventory is empty.</td></tr>
                         )}
                     </tbody>
                 </table>
