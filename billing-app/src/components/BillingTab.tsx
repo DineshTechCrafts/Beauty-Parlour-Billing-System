@@ -69,16 +69,60 @@ const ComboSelect: React.FC<{
     // If open, we show their search string. If closed, we show the selected catalog item description if available, else just the raw value.
     const displayValue = open ? search : (selectedOption ? selectedOption.description : value);
 
-    const filtered = options.filter(o => {
-        if (!search) return true;
-        if ((o.id || '').includes(search)) return true;
-        
-        const cleanSearch = search.replace(/\s+/g, '').toLowerCase();
-        const cleanDesc = (o.description || '').replace(/\s+/g, '').toLowerCase();
-        const cleanCat = (o.category || '').replace(/\s+/g, '').toLowerCase();
-        
-        return cleanDesc.includes(cleanSearch) || cleanCat.includes(cleanSearch);
-    });
+    const filtered = React.useMemo(() => {
+        if (!search) return options;
+
+        // Filter options:
+        // For ID: exact substring match (preserving case and spacing)
+        // For name (description/category): space-insensitive & case-insensitive
+        const matches = options.filter(o => {
+            if ((o.id || '').includes(search)) return true;
+
+            const cleanSearch = search.replace(/\s+/g, '').toLowerCase();
+            const cleanDesc = (o.description || '').replace(/\s+/g, '').toLowerCase();
+            const cleanCat = (o.category || '').replace(/\s+/g, '').toLowerCase();
+            
+            return cleanDesc.includes(cleanSearch) || cleanCat.includes(cleanSearch);
+        });
+
+        // Sort options:
+        return matches.sort((a, b) => {
+            const cleanSearch = search.replace(/\s+/g, '').toLowerCase();
+
+            const aId = a.id || '';
+            const bId = b.id || '';
+            const aDesc = (a.description || '').toLowerCase();
+            const bDesc = (b.description || '').toLowerCase();
+            const aCat = (a.category || '').toLowerCase();
+            const bCat = (b.category || '').toLowerCase();
+
+            // 1. Exact ID match (case-sensitive and space-sensitive)
+            if (aId === search && bId !== search) return -1;
+            if (bId === search && aId !== search) return 1;
+
+            // 2. Exact description match (case-insensitive and space-insensitive)
+            const cleanADesc = aDesc.replace(/\s+/g, '');
+            const cleanBDesc = bDesc.replace(/\s+/g, '');
+            if (cleanADesc === cleanSearch && cleanBDesc !== cleanSearch) return -1;
+            if (cleanBDesc === cleanSearch && cleanADesc !== cleanSearch) return 1;
+
+            // 3. ID starts with search (exact)
+            if (aId.startsWith(search) && !bId.startsWith(search)) return -1;
+            if (bId.startsWith(search) && !aId.startsWith(search)) return 1;
+
+            // 4. Description starts with search (space/case-insensitive)
+            if (cleanADesc.startsWith(cleanSearch) && !cleanBDesc.startsWith(cleanSearch)) return -1;
+            if (cleanBDesc.startsWith(cleanSearch) && !cleanADesc.startsWith(cleanSearch)) return 1;
+
+            // 5. Category starts with search (space/case-insensitive)
+            const cleanACat = aCat.replace(/\s+/g, '');
+            const cleanBCat = bCat.replace(/\s+/g, '');
+            if (cleanACat.startsWith(cleanSearch) && !cleanBCat.startsWith(cleanSearch)) return -1;
+            if (cleanBCat.startsWith(cleanSearch) && !cleanACat.startsWith(cleanSearch)) return 1;
+
+            return (a.description || '').localeCompare(b.description || '');
+        });
+    }, [options, search]);
 
     return (
         <div ref={wrapperRef} style={{ position: 'relative', width: '100%' }}>
@@ -99,7 +143,17 @@ const ComboSelect: React.FC<{
                 onKeyDown={e => {
                     if (e.key === 'Enter') {
                         e.preventDefault();
-                        if (filtered.length === 1) {
+                        const query = search.trim().toLowerCase();
+                        const exactIdMatch = filtered.find(o => (o.id || '').toLowerCase() === query);
+                        if (exactIdMatch) {
+                            onChange(exactIdMatch.id, null);
+                            setOpen(false);
+                            (e.target as HTMLInputElement).blur();
+                        } else if (filtered.length === 1) {
+                            onChange(filtered[0].id, null);
+                            setOpen(false);
+                            (e.target as HTMLInputElement).blur();
+                        } else if (filtered.length > 0) {
                             onChange(filtered[0].id, null);
                             setOpen(false);
                             (e.target as HTMLInputElement).blur();
@@ -112,24 +166,37 @@ const ComboSelect: React.FC<{
             />
             {open && (
                 <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 9999, background: '#fff', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', maxHeight: '250px', overflowY: 'auto', boxShadow: 'var(--shadow-lg)', marginTop: '4px' }}>
-                    {filtered.map(opt => (
-                        <div 
-                            key={opt.id} 
-                            style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #f1f5f9', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-                            onClick={() => { 
-                                onChange(opt.id, null); 
-                                setOpen(false); 
-                            }}
-                            onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#f8fafc')}
-                            onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
-                        >
-                            <span style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--text-primary)' }}>
-                                {opt.description}
-                                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginLeft: '6px' }}>({opt.id})</span>
-                            </span>
-                            <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>₹{Number(opt.price).toLocaleString()}</span>
-                        </div>
-                    ))}
+                    {filtered.map(opt => {
+                        const isExactIdMatch = (opt.id || '').toLowerCase() === search.trim().toLowerCase();
+                        return (
+                            <div 
+                                key={opt.id} 
+                                style={{ 
+                                    padding: '0.75rem 1rem', 
+                                    borderBottom: '1px solid #f1f5f9', 
+                                    cursor: 'pointer', 
+                                    display: 'flex', 
+                                    justifyContent: 'space-between', 
+                                    alignItems: 'center',
+                                    backgroundColor: isExactIdMatch ? '#f0fdf4' : 'transparent'
+                                }}
+                                onClick={() => { 
+                                    onChange(opt.id, null); 
+                                    setOpen(false); 
+                                }}
+                                onMouseEnter={e => (e.currentTarget.style.backgroundColor = isExactIdMatch ? '#dcfce7' : '#f8fafc')}
+                                onMouseLeave={e => (e.currentTarget.style.backgroundColor = isExactIdMatch ? '#f0fdf4' : 'transparent')}
+                            >
+                                <span style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--text-primary)' }}>
+                                    {opt.description}
+                                    <span style={{ fontSize: '0.72rem', color: isExactIdMatch ? 'var(--primary)' : 'var(--text-muted)', marginLeft: '6px', fontWeight: isExactIdMatch ? 700 : 500 }}>
+                                        ({opt.id}){isExactIdMatch && ' [Exact ID Match]'}
+                                    </span>
+                                </span>
+                                <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>₹{Number(opt.price).toLocaleString()}</span>
+                            </div>
+                        );
+                    })}
                     {filtered.length === 0 && <div style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)' }}>Type to set as manual entry</div>}
                 </div>
             )}

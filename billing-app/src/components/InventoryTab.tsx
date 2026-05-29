@@ -35,6 +35,15 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ inventory, saveInven
             if (editItem.description === 'New Product' || editItem.description === 'New Service' || editItem.description.trim() === '') {
                 saveInventory(inventory.filter(i => i.id !== editItem.id));
             } else {
+                const isIdTaken = inventory.some(i => i.id === editItem.id && i.id !== editingId);
+                if (isIdTaken) {
+                    alert(`Error: The ID "${editItem.id}" is already in use by another item. Please choose a unique ID.`);
+                    return;
+                }
+                if (!editItem.id.trim()) {
+                    alert('Error: Item ID cannot be empty.');
+                    return;
+                }
                 const newList = inventory.map(i => i.id === editingId ? editItem : i);
                 saveInventory(newList);
             }
@@ -46,8 +55,20 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ inventory, saveInven
     const addRow = (type: 'Product' | 'Service') => {
         setSearch('');
         setFilterType('All');
+        const prefix = type === 'Product' ? 'PRD' : 'SRV';
+        const manualItems = inventory.filter(i => i.source === 'manual' && i.type === type);
+        let maxNum = 0;
+        manualItems.forEach(item => {
+            const match = item.id.match(/_M(\d+)$/);
+            if (match) {
+                const num = parseInt(match[1], 10);
+                if (num > maxNum) maxNum = num;
+            }
+        });
+        const nextNum = maxNum + 1;
+        const newId = `${prefix}_M${String(nextNum).padStart(3, '0')}`;
         const newItem: InventoryItem = {
-            id: Date.now().toString(),
+            id: newId,
             type: type,
             category: type === 'Product' ? 'Retail' : 'General',
             description: `New ${type}`,
@@ -65,29 +86,72 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ inventory, saveInven
         }
     };
 
-    const filtered = inventory.filter(i => {
-        const matchesType = filterType === 'All' || i.type === filterType;
-        
-        const matchesSearch = (() => {
-            if (!search) return true;
+    const filtered = React.useMemo(() => {
+        const baseFiltered = inventory.filter(i => {
+            const matchesType = filterType === 'All' || i.type === filterType;
             
-            // 1. ID check (exact substring match, preserving case and spaces)
-            if ((i.id || '').includes(search)) return true;
-            
-            // 2. Name & Category check (ignoring case and spaces entirely)
-            const cleanSearch = search.replace(/\s+/g, '').toLowerCase();
-            const cleanDesc = (i.description || '').replace(/\s+/g, '').toLowerCase();
-            const cleanCat = (i.category || '').replace(/\s+/g, '').toLowerCase();
-            
-            return cleanDesc.includes(cleanSearch) || cleanCat.includes(cleanSearch);
-        })();
+            const matchesSearch = (() => {
+                if (!search) return true;
+                
+                // 1. ID check (exact substring match, preserving case and spaces)
+                if ((i.id || '').includes(search)) return true;
+                
+                // 2. Name & Category check (ignoring case and spaces entirely)
+                const cleanSearch = search.replace(/\s+/g, '').toLowerCase();
+                const cleanDesc = (i.description || '').replace(/\s+/g, '').toLowerCase();
+                const cleanCat = (i.category || '').replace(/\s+/g, '').toLowerCase();
+                
+                return cleanDesc.includes(cleanSearch) || cleanCat.includes(cleanSearch);
+            })();
 
-        return matchesType && matchesSearch;
-    }).sort((a, b) => {
-        if (a.id === editingId) return -1;
-        if (b.id === editingId) return 1;
-        return (a.description || '').localeCompare(b.description || '');
-    });
+            return matchesType && matchesSearch;
+        });
+
+        return baseFiltered.sort((a, b) => {
+            // 1. Keep editing item at the top
+            if (a.id === editingId && b.id !== editingId) return -1;
+            if (b.id === editingId && a.id !== editingId) return 1;
+
+            if (!search) {
+                return (a.description || '').localeCompare(b.description || '');
+            }
+
+            const cleanSearch = search.replace(/\s+/g, '').toLowerCase();
+
+            const aId = a.id || '';
+            const bId = b.id || '';
+            const aDesc = (a.description || '').toLowerCase();
+            const bDesc = (b.description || '').toLowerCase();
+            const aCat = (a.category || '').toLowerCase();
+            const bCat = (b.category || '').toLowerCase();
+
+            // 1. Exact ID match (case-sensitive and space-sensitive)
+            if (aId === search && bId !== search) return -1;
+            if (bId === search && aId !== search) return 1;
+
+            // 2. Exact description match (case-insensitive and space-insensitive)
+            const cleanADesc = aDesc.replace(/\s+/g, '');
+            const cleanBDesc = bDesc.replace(/\s+/g, '');
+            if (cleanADesc === cleanSearch && cleanBDesc !== cleanSearch) return -1;
+            if (cleanBDesc === cleanSearch && cleanADesc !== cleanSearch) return 1;
+
+            // 3. ID starts with search (exact)
+            if (aId.startsWith(search) && !bId.startsWith(search)) return -1;
+            if (bId.startsWith(search) && !aId.startsWith(search)) return 1;
+
+            // 4. Description starts with search (space/case-insensitive)
+            if (cleanADesc.startsWith(cleanSearch) && !cleanBDesc.startsWith(cleanSearch)) return -1;
+            if (cleanBDesc.startsWith(cleanSearch) && !cleanADesc.startsWith(cleanSearch)) return 1;
+
+            // 5. Category starts with search (space/case-insensitive)
+            const cleanACat = aCat.replace(/\s+/g, '');
+            const cleanBCat = bCat.replace(/\s+/g, '');
+            if (cleanACat.startsWith(cleanSearch) && !cleanBCat.startsWith(cleanSearch)) return -1;
+            if (cleanBCat.startsWith(cleanSearch) && !cleanACat.startsWith(cleanSearch)) return 1;
+
+            return aDesc.localeCompare(bDesc);
+        });
+    }, [inventory, filterType, search, editingId]);
 
     return (
         <div className="catalog-mgmt-flow">
@@ -155,6 +219,21 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ inventory, saveInven
                                             <span style={{ fontFamily: 'monospace', fontSize: '0.85rem', color: 'var(--text-muted)' }}>{item.id}</span>
                                         </td>
                                         <td>
+                                            {isManualEditing && (
+                                                <div style={{ marginBottom: '8px' }}>
+                                                    <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginBottom: '2px', fontWeight: 600 }}>Item ID</label>
+                                                    <input
+                                                        className="form-control"
+                                                        value={editItem?.id || ''}
+                                                        onChange={e => {
+                                                            const newId = e.target.value.trim().toUpperCase();
+                                                            setEditItem(prev => prev ? { ...prev, id: newId } : null);
+                                                        }}
+                                                        style={{ fontSize: '0.8rem' }}
+                                                    />
+                                                </div>
+                                            )}
+                                            <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginBottom: '2px', fontWeight: 600 }}>Description</label>
                                             <input
                                                 className="form-control"
                                                 value={editItem?.description}
@@ -162,6 +241,7 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ inventory, saveInven
                                                 onChange={e => setEditItem(prev => prev ? { ...prev, description: e.target.value } : null)}
                                                 style={{ marginBottom: '8px' }}
                                             />
+                                            <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginBottom: '2px', fontWeight: 600 }}>Category</label>
                                             <input
                                                 className="form-control"
                                                 placeholder="Category"
@@ -210,7 +290,10 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ inventory, saveInven
                                         <td>
                                             <span style={{ fontFamily: 'monospace', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{item.id}</span>
                                         </td>
-                                        <td><span style={{ fontWeight: 600 }}>{item.description}</span></td>
+                                        <td>
+                                            <span style={{ fontWeight: 600 }}>{item.description}</span>
+                                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '4px' }}>ID: {item.id}</div>
+                                        </td>
                                         <td><span style={{ fontWeight: 700, color: 'var(--secondary)' }}>₹{item.price.toLocaleString()}</span></td>
                                         <td>
                                             {item.type === 'Product' ? (
