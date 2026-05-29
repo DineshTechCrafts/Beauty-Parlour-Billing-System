@@ -1029,30 +1029,277 @@ svg {
 }
 
 /* Price Catalog & History */
-.catalog-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 1.5rem;
-}
+/* ═══════════════════════════════════════════════════════
+   CATALOG TAB  –  Premium Service Menu UI
+   ═══════════════════════════════════════════════════════ */
 
-.catalog-card {
-  padding: 1.5rem;
+/* Legacy classes kept so nothing else breaks */
+.catalog-grid  { display: none; }
+.catalog-card  { display: none; }
+.catalog-header{ display: none; }
+.catalog-price { display: none; }
+
+/* Outer wrapper */
+.ctab-wrapper {
   display: flex;
   flex-direction: column;
+  gap: 1.25rem;
+  padding-bottom: 2rem;
 }
 
-.catalog-header {
+/* ── Filter bar (search + price + sort) ── */
+.ctab-filter-bar {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  align-items: center;
+  background: #fff;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  padding: 1rem 1.25rem;
+  box-shadow: var(--shadow-sm);
+}
+
+/* Search */
+.ctab-search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 220px;
+}
+.ctab-search-icon {
+  position: absolute;
+  left: 12px;
+  font-size: 1rem;
+  pointer-events: none;
+}
+.ctab-search-input {
+  width: 100%;
+  padding: 0.6rem 2.5rem 0.6rem 2.4rem;
+  border: 1.5px solid var(--border-light);
+  border-radius: var(--radius-full);
+  font-size: 0.875rem;
+  font-family: 'Inter', sans-serif;
+  background: #f8fafc;
+  color: var(--text-main);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.ctab-search-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+  background: #fff;
+}
+.ctab-search-clear {
+  position: absolute;
+  right: 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  padding: 2px 4px;
+  border-radius: 50%;
+  transition: color 0.15s;
+}
+.ctab-search-clear:hover { color: #ef4444; }
+
+/* Select dropdowns */
+.ctab-select-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.ctab-select-icon {
+  position: absolute;
+  left: 10px;
+  font-size: 0.95rem;
+  pointer-events: none;
+  z-index: 1;
+}
+.ctab-select {
+  padding: 0.6rem 1rem 0.6rem 2.2rem;
+  border: 1.5px solid var(--border-light);
+  border-radius: var(--radius-full);
+  font-size: 0.8rem;
+  font-family: 'Inter', sans-serif;
+  background: #f8fafc;
+  color: var(--text-main);
+  cursor: pointer;
+  appearance: none;
+  transition: border-color 0.2s;
+  min-width: 160px;
+}
+.ctab-select.ctab-select--no-icon {
+  padding-left: 0.9rem;
+}
+.ctab-select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+}
+
+/* ── Category chips scroll strip ── */
+.ctab-category-scroll {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.ctab-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0.45rem 1rem;
+  border: 1.5px solid var(--border-light);
+  border-radius: var(--radius-full);
+  background: #fff;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 500;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.18s ease;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+.ctab-chip:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: rgba(37,99,235,0.04);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(37,99,235,0.12);
+}
+.ctab-chip--active {
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  transform: translateY(-1px);
+}
+
+/* ── Results count bar ── */
+.ctab-results-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 0.25rem;
+}
+.ctab-results-count {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+.ctab-results-count strong { color: var(--text-secondary); }
+.ctab-clear-btn {
+  background: none;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-full);
+  padding: 0.3rem 0.9rem;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: 'Inter', sans-serif;
+}
+.ctab-clear-btn:hover {
+  border-color: #ef4444;
+  color: #ef4444;
+  background: rgba(239,68,68,0.05);
+}
+
+/* ── Service cards grid ── */
+.ctab-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1.25rem;
+}
+
+/* Each card */
+.ctab-card {
+  background: #fff;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-light);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s;
+  cursor: default;
+}
+.ctab-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+  border-color: var(--card-accent, var(--primary));
+}
+
+/* Colored top strip */
+.ctab-card-top {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid rgba(0,0,0,0.05);
+}
+.ctab-card-emoji {
+  display: inline-block;
+  font-size: 1.25rem;
+  line-height: 1;
+}
+.ctab-card-cat {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-family: 'Outfit', sans-serif;
+}
+
+/* Card body */
+.ctab-card-body {
+  padding: 1rem;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.ctab-card-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-main);
+  line-height: 1.4;
+  font-family: 'Outfit', sans-serif;
+}
+.ctab-card-footer {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 1rem;
+  align-items: center;
+}
+.ctab-card-price {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--card-accent, var(--primary));
+  font-family: 'Outfit', sans-serif;
+}
+.ctab-card-id {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  font-family: monospace;
 }
 
-.catalog-price {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--primary);
+/* ── Empty state ── */
+.ctab-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 5rem 2rem;
+  gap: 1rem;
+  text-align: center;
+  background: #fff;
+  border-radius: var(--radius-lg);
+  border: 1px dashed var(--border-light);
 }
+.ctab-empty-icon { font-size: 3rem; }
+.ctab-empty h3   { color: var(--text-secondary); font-size: 1.1rem; }
+.ctab-empty p    { color: var(--text-muted); font-size: 0.875rem; margin-bottom: 0.5rem; }
 
 /* Utility */
 .no-print {

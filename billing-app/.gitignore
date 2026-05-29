@@ -16,6 +16,7 @@ release
 # Runtime / generated business data
 data/bills.csv
 data/sessions.json
+data/inventory.json
 data/20*/
 data/**/INV-*.pdf
 

@@ -1,4 +1,761 @@
 {
-  "overrides": {},
-  "manualItems": []
+  "overrides": {
+    "SRV001": {
+      "price": 50,
+      "gst": 18
+    },
+    "SRV002": {
+      "price": 40,
+      "gst": 18
+    },
+    "SRV003": {
+      "price": 40,
+      "gst": 18
+    },
+    "SRV004": {
+      "price": 40,
+      "gst": 18
+    },
+    "SRV005": {
+      "price": 50,
+      "gst": 18
+    },
+    "SRV006": {
+      "price": 120,
+      "gst": 18
+    },
+    "SRV007": {
+      "price": 350,
+      "gst": 18
+    },
+    "SRV008": {
+      "price": 2500,
+      "gst": 18
+    },
+    "SRV009": {
+      "price": 2500,
+      "gst": 18
+    },
+    "SRV010": {
+      "price": 2000,
+      "gst": 18
+    },
+    "SRV011": {
+      "price": 2500,
+      "gst": 18
+    },
+    "SRV012": {
+      "price": 4000,
+      "gst": 18
+    },
+    "SRV013": {
+      "price": 1200,
+      "gst": 18
+    },
+    "SRV014": {
+      "price": 2000,
+      "gst": 18
+    },
+    "SRV015": {
+      "price": 2000,
+      "gst": 18
+    },
+    "SRV016": {
+      "price": 1000,
+      "gst": 18
+    },
+    "SRV017": {
+      "price": 7000,
+      "gst": 18
+    },
+    "SRV018": {
+      "price": 500,
+      "gst": 18
+    },
+    "SRV019": {
+      "price": 500,
+      "gst": 18
+    },
+    "SRV020": {
+      "price": 2000,
+      "gst": 18
+    },
+    "SRV021": {
+      "price": 2300,
+      "gst": 18
+    },
+    "SRV022": {
+      "price": 1500,
+      "gst": 18
+    },
+    "SRV023": {
+      "price": 400,
+      "gst": 18
+    },
+    "SRV024": {
+      "price": 750,
+      "gst": 18
+    },
+    "SRV025": {
+      "price": 1500,
+      "gst": 18
+    },
+    "SRV026": {
+      "price": 300,
+      "gst": 18
+    },
+    "SRV027": {
+      "price": 500,
+      "gst": 18
+    },
+    "SRV028": {
+      "price": 550,
+      "gst": 18
+    },
+    "SRV029": {
+      "price": 750,
+      "gst": 18
+    },
+    "SRV030": {
+      "price": 500,
+      "gst": 18
+    },
+    "SRV031": {
+      "price": 500,
+      "gst": 18
+    },
+    "SRV032": {
+      "price": 500,
+      "gst": 18
+    },
+    "SRV033": {
+      "price": 500,
+      "gst": 18
+    },
+    "SRV034": {
+      "price": 750,
+      "gst": 18
+    },
+    "SRV035": {
+      "price": 700,
+      "gst": 18
+    },
+    "SRV036": {
+      "price": 600,
+      "gst": 18
+    },
+    "SRV037": {
+      "price": 750,
+      "gst": 18
+    },
+    "SRV038": {
+      "price": 850,
+      "gst": 18
+    },
+    "SRV039": {
+      "price": 1000,
+      "gst": 18
+    },
+    "SRV040": {
+      "price": 800,
+      "gst": 18
+    },
+    "SRV041": {
+      "price": 1200,
+      "gst": 18
+    },
+    "SRV042": {
+      "price": 1500,
+      "gst": 18
+    },
+    "SRV043": {
+      "price": 1200,
+      "gst": 18
+    },
+    "SRV044": {
+      "price": 100,
+      "gst": 18
+    },
+    "SRV045": {
+      "price": 50,
+      "gst": 18
+    },
+    "SRV046": {
+      "price": 75,
+      "gst": 18
+    },
+    "SRV047": {
+      "price": 900,
+      "gst": 18
+    },
+    "SRV048": {
+      "price": 500,
+      "gst": 18
+    },
+    "SRV049": {
+      "price": 700,
+      "gst": 18
+    },
+    "SRV050": {
+      "price": 4500,
+      "gst": 18
+    },
+    "SRV051": {
+      "price": 2500,
+      "gst": 18
+    },
+    "SRV052": {
+      "price": 3500,
+      "gst": 18
+    },
+    "SRV053": {
+      "price": 500,
+      "gst": 18
+    },
+    "SRV054": {
+      "price": 500,
+      "gst": 18
+    },
+    "SRV055": {
+      "price": 1000,
+      "gst": 18
+    },
+    "SRV056": {
+      "price": 1000,
+      "gst": 18
+    },
+    "SRV057": {
+      "price": 1500,
+      "gst": 18
+    },
+    "SRV058": {
+      "price": 1500,
+      "gst": 18
+    },
+    "SRV059": {
+      "price": 2000,
+      "gst": 18
+    },
+    "SRV060": {
+      "price": 600,
+      "gst": 18
+    },
+    "SRV061": {
+      "price": 1500,
+      "gst": 18
+    },
+    "SRV062": {
+      "price": 2000,
+      "gst": 18
+    },
+    "SRV063": {
+      "price": 2500,
+      "gst": 18
+    },
+    "SRV064": {
+      "price": 1000,
+      "gst": 18
+    },
+    "SRV065": {
+      "price": 1500,
+      "gst": 18
+    },
+    "SRV066": {
+      "price": 1000,
+      "gst": 18
+    },
+    "SRV067": {
+      "price": 1000,
+      "gst": 18
+    },
+    "SRV068": {
+      "price": 2000,
+      "gst": 18
+    },
+    "SRV069": {
+      "price": 1500,
+      "gst": 18
+    },
+    "SRV070": {
+      "price": 9000,
+      "gst": 18
+    },
+    "SRV071": {
+      "price": 25000,
+      "gst": 18
+    },
+    "SRV072": {
+      "price": 30000,
+      "gst": 18
+    },
+    "SRV073": {
+      "price": 40000,
+      "gst": 18
+    },
+    "SRV074": {
+      "price": 2000,
+      "gst": 18
+    },
+    "SRV075": {
+      "price": 2000,
+      "gst": 18
+    },
+    "SRV076": {
+      "price": 2200,
+      "gst": 18
+    },
+    "SRV077": {
+      "price": 3000,
+      "gst": 18
+    },
+    "SRV078": {
+      "price": 2000,
+      "gst": 18
+    },
+    "SRV079": {
+      "price": 2500,
+      "gst": 18
+    },
+    "SRV080": {
+      "price": 4000,
+      "gst": 18
+    },
+    "SRV081": {
+      "price": 2000,
+      "gst": 18
+    },
+    "SRV082": {
+      "price": 3000,
+      "gst": 18
+    },
+    "SRV083": {
+      "price": 5000,
+      "gst": 18
+    },
+    "SRV084": {
+      "price": 7000,
+      "gst": 18
+    },
+    "SRV085": {
+      "price": 2000,
+      "gst": 18
+    },
+    "SRV086": {
+      "price": 1500,
+      "gst": 18
+    },
+    "SRV087": {
+      "price": 5000,
+      "gst": 18
+    },
+    "SRV088": {
+      "price": 4000,
+      "gst": 18
+    },
+    "SRV089": {
+      "price": 6000,
+      "gst": 18
+    },
+    "SRV090": {
+      "price": 3000,
+      "gst": 18
+    },
+    "SRV091": {
+      "price": 8000,
+      "gst": 18
+    },
+    "SRV092": {
+      "price": 1500,
+      "gst": 18
+    },
+    "SRV093": {
+      "price": 3000,
+      "gst": 18
+    },
+    "SRV094": {
+      "price": 3000,
+      "gst": 18
+    },
+    "SRV095": {
+      "price": 2000,
+      "gst": 18
+    },
+    "SRV096": {
+      "price": 2200,
+      "gst": 18
+    },
+    "SRV097": {
+      "price": 3000,
+      "gst": 18
+    },
+    "SRV098": {
+      "price": 80000,
+      "gst": 18
+    },
+    "SRV099": {
+      "price": 3000,
+      "gst": 18
+    },
+    "SRV100": {
+      "price": 6000,
+      "gst": 18
+    },
+    "SRV101": {
+      "price": 6000,
+      "gst": 18
+    },
+    "SRV102": {
+      "price": 6000,
+      "gst": 18
+    },
+    "SRV103": {
+      "price": 2500,
+      "gst": 18
+    },
+    "SRV104": {
+      "price": 2500,
+      "gst": 18
+    },
+    "SRV105": {
+      "price": 9999,
+      "gst": 18
+    },
+    "SRV106": {
+      "price": 3000,
+      "gst": 18
+    },
+    "SRV107": {
+      "price": 15000,
+      "gst": 18
+    },
+    "SRV108": {
+      "price": 25000,
+      "gst": 18
+    },
+    "SRV109": {
+      "price": 15000,
+      "gst": 18
+    },
+    "SRV110": {
+      "price": 25000,
+      "gst": 18
+    },
+    "PRD001": {
+      "quantity": 0,
+      "price": 799,
+      "gst": 18
+    },
+    "PRD002": {
+      "quantity": 0,
+      "price": 599,
+      "gst": 18
+    },
+    "PRD003": {
+      "quantity": 0,
+      "price": 599,
+      "gst": 18
+    },
+    "PRD004": {
+      "quantity": 0,
+      "price": 799,
+      "gst": 18
+    },
+    "PRD005": {
+      "quantity": 0,
+      "price": 799,
+      "gst": 18
+    },
+    "PRD006": {
+      "quantity": 0,
+      "price": 799,
+      "gst": 18
+    },
+    "PRD007": {
+      "quantity": 0,
+      "price": 699,
+      "gst": 18
+    },
+    "PRD008": {
+      "quantity": 0,
+      "price": 550,
+      "gst": 18
+    },
+    "PRD009": {
+      "quantity": 0,
+      "price": 550,
+      "gst": 18
+    },
+    "PRD010": {
+      "quantity": 0,
+      "price": 550,
+      "gst": 18
+    },
+    "PRD011": {
+      "quantity": 0,
+      "price": 599,
+      "gst": 18
+    },
+    "PRD012": {
+      "quantity": 0,
+      "price": 550,
+      "gst": 18
+    },
+    "PRD013": {
+      "quantity": 0,
+      "price": 349,
+      "gst": 18
+    },
+    "PRD014": {
+      "quantity": 0,
+      "price": 349,
+      "gst": 18
+    },
+    "PRD015": {
+      "quantity": 0,
+      "price": 349,
+      "gst": 18
+    },
+    "PRD016": {
+      "quantity": 0,
+      "price": 549,
+      "gst": 18
+    },
+    "PRD017": {
+      "quantity": 0,
+      "price": 549,
+      "gst": 18
+    },
+    "PRD018": {
+      "quantity": 0,
+      "price": 549,
+      "gst": 18
+    },
+    "PRD019": {
+      "quantity": 0,
+      "price": 899,
+      "gst": 18
+    },
+    "PRD020": {
+      "quantity": 0,
+      "price": 1099,
+      "gst": 18
+    },
+    "PRD021": {
+      "quantity": 0,
+      "price": 899,
+      "gst": 18
+    },
+    "PRD022": {
+      "quantity": 0,
+      "price": 899,
+      "gst": 18
+    },
+    "PRD023": {
+      "quantity": 0,
+      "price": 899,
+      "gst": 18
+    },
+    "PRD024": {
+      "quantity": 0,
+      "price": 899,
+      "gst": 18
+    },
+    "PRD025": {
+      "quantity": 0,
+      "price": 899,
+      "gst": 18
+    },
+    "PRD026": {
+      "quantity": 0,
+      "price": 999,
+      "gst": 18
+    },
+    "PRD027": {
+      "quantity": 0,
+      "price": 999,
+      "gst": 18
+    },
+    "PRD028": {
+      "quantity": 0,
+      "price": 999,
+      "gst": 18
+    },
+    "PRD029": {
+      "quantity": 0,
+      "price": 199,
+      "gst": 18
+    },
+    "PRD030": {
+      "quantity": 0,
+      "price": 199,
+      "gst": 18
+    },
+    "PRD031": {
+      "quantity": 0,
+      "price": 199,
+      "gst": 18
+    },
+    "PRD032": {
+      "quantity": 0,
+      "price": 199,
+      "gst": 18
+    },
+    "PRD033": {
+      "quantity": 0,
+      "price": 199,
+      "gst": 18
+    },
+    "PRD034": {
+      "quantity": 0,
+      "price": 549,
+      "gst": 18
+    },
+    "PRD035": {
+      "quantity": 0,
+      "price": 549,
+      "gst": 18
+    },
+    "PRD036": {
+      "quantity": 0,
+      "price": 549,
+      "gst": 18
+    },
+    "PRD037": {
+      "quantity": 0,
+      "price": 549,
+      "gst": 18
+    },
+    "PRD038": {
+      "quantity": 0,
+      "price": 549,
+      "gst": 18
+    },
+    "PRD039": {
+      "quantity": 0,
+      "price": 549,
+      "gst": 18
+    },
+    "PRD040": {
+      "quantity": 0,
+      "price": 549,
+      "gst": 18
+    },
+    "PRD041": {
+      "quantity": 0,
+      "price": 599,
+      "gst": 18
+    },
+    "PRD042": {
+      "quantity": 0,
+      "price": 599,
+      "gst": 18
+    },
+    "PRD043": {
+      "quantity": 0,
+      "price": 599,
+      "gst": 18
+    },
+    "PRD044": {
+      "quantity": 0,
+      "price": 549,
+      "gst": 18
+    },
+    "PRD045": {
+      "quantity": 0,
+      "price": 549,
+      "gst": 18
+    },
+    "PRD046": {
+      "quantity": 0,
+      "price": 1099,
+      "gst": 18
+    },
+    "PRD047": {
+      "quantity": 0,
+      "price": 799,
+      "gst": 18
+    },
+    "PRD048": {
+      "quantity": 0,
+      "price": 799,
+      "gst": 18
+    },
+    "PRD049": {
+      "quantity": 0,
+      "price": 399,
+      "gst": 18
+    },
+    "PRD050": {
+      "quantity": 0,
+      "price": 599,
+      "gst": 18
+    },
+    "PRD051": {
+      "quantity": 0,
+      "price": 799,
+      "gst": 18
+    },
+    "PRD052": {
+      "quantity": 0,
+      "price": 399,
+      "gst": 18
+    },
+    "PRD053": {
+      "quantity": 0,
+      "price": 749,
+      "gst": 18
+    },
+    "PRD054": {
+      "quantity": 0,
+      "price": 749,
+      "gst": 18
+    },
+    "PRD055": {
+      "quantity": 0,
+      "price": 799,
+      "gst": 18
+    },
+    "PRD056": {
+      "quantity": 0,
+      "price": 599,
+      "gst": 18
+    },
+    "PRD057": {
+      "quantity": 0,
+      "price": 499,
+      "gst": 18
+    },
+    "PRD058": {
+      "quantity": 0,
+      "price": 499,
+      "gst": 18
+    }
+  },
+  "manualItems": [
+    {
+      "id": "1780058184567",
+      "type": "Product",
+      "category": "Retail",
+      "description": "New Product",
+      "price": 0,
+      "quantity": 0,
+      "source": "manual"
+    },
+    {
+      "id": "1780058184049",
+      "type": "Service",
+      "category": "General",
+      "description": "New Service",
+      "price": 0,
+      "source": "manual"
+    },
+    {
+      "id": "1780058183413",
+      "type": "Service",
+      "category": "General",
+      "description": "New Service",
+      "price": 0,
+      "source": "manual"
+    }
+  ]
 }
