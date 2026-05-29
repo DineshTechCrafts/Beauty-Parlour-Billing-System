@@ -35,6 +35,15 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ inventory, saveInven
             if (editItem.description === 'New Product' || editItem.description === 'New Service' || editItem.description.trim() === '') {
                 saveInventory(inventory.filter(i => i.id !== editItem.id));
             } else {
+                const isIdTaken = inventory.some(i => i.id === editItem.id && i.id !== editingId);
+                if (isIdTaken) {
+                    alert(`Error: The ID "${editItem.id}" is already in use by another item. Please choose a unique ID.`);
+                    return;
+                }
+                if (!editItem.id.trim()) {
+                    alert('Error: Item ID cannot be empty.');
+                    return;
+                }
                 const newList = inventory.map(i => i.id === editingId ? editItem : i);
                 saveInventory(newList);
             }
@@ -44,8 +53,21 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ inventory, saveInven
     };
 
     const addRow = (type: 'Product' | 'Service') => {
+        const prefix = type === 'Product' ? 'PRD' : 'SRV';
+        const manualItems = inventory.filter(i => i.source === 'manual' && i.type === type);
+        let maxNum = 0;
+        manualItems.forEach(item => {
+            const match = item.id.match(/_M(\d+)$/);
+            if (match) {
+                const num = parseInt(match[1], 10);
+                if (num > maxNum) maxNum = num;
+            }
+        });
+        const nextNum = maxNum + 1;
+        const newId = `${prefix}_M${String(nextNum).padStart(3, '0')}`;
+
         const newItem: InventoryItem = {
-            id: Date.now().toString(),
+            id: newId,
             type: type,
             category: type === 'Product' ? 'Retail' : 'General',
             description: `New ${type}`,
@@ -63,13 +85,53 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ inventory, saveInven
         }
     };
 
-    const filtered = inventory.filter(i => {
-        const matchesType = filterType === 'All' || i.type === filterType;
-        const matchesSearch = (i.description || '').toLowerCase().includes(search.toLowerCase()) ||
-            (i.category || '').toLowerCase().includes(search.toLowerCase()) ||
-            (i.id || '').toLowerCase().includes(search.toLowerCase());
-        return matchesType && matchesSearch;
-    }).sort((a, b) => (a.description || '').localeCompare(b.description || ''));
+    const filtered = React.useMemo(() => {
+        const query = search.trim().toLowerCase();
+        const baseFiltered = inventory.filter(i => {
+            const matchesType = filterType === 'All' || i.type === filterType;
+            if (!query) return matchesType;
+            return matchesType && (
+                (i.description || '').toLowerCase().includes(query) ||
+                (i.category || '').toLowerCase().includes(query) ||
+                (i.id || '').toLowerCase().includes(query)
+            );
+        });
+
+        if (!query) {
+            return baseFiltered.sort((a, b) => (a.description || '').localeCompare(b.description || ''));
+        }
+
+        return baseFiltered.sort((a, b) => {
+            const aId = (a.id || '').toLowerCase();
+            const bId = (b.id || '').toLowerCase();
+            const aDesc = (a.description || '').toLowerCase();
+            const bDesc = (b.description || '').toLowerCase();
+            const aCat = (a.category || '').toLowerCase();
+            const bCat = (b.category || '').toLowerCase();
+
+            // 1. Exact ID match
+            if (aId === query && bId !== query) return -1;
+            if (bId === query && aId !== query) return 1;
+
+            // 2. Exact description match
+            if (aDesc === query && bDesc !== query) return -1;
+            if (bDesc === query && aDesc !== query) return 1;
+
+            // 3. ID starts with query
+            if (aId.startsWith(query) && !bId.startsWith(query)) return -1;
+            if (bId.startsWith(query) && !aId.startsWith(query)) return 1;
+
+            // 4. Description starts with query
+            if (aDesc.startsWith(query) && !bDesc.startsWith(query)) return -1;
+            if (bDesc.startsWith(query) && !aDesc.startsWith(query)) return 1;
+
+            // 5. Category starts with query
+            if (aCat.startsWith(query) && !bCat.startsWith(query)) return -1;
+            if (bCat.startsWith(query) && !aCat.startsWith(query)) return 1;
+
+            return aDesc.localeCompare(bDesc);
+        });
+    }, [inventory, filterType, search]);
 
     return (
         <div className="catalog-mgmt-flow">
@@ -131,6 +193,21 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ inventory, saveInven
                                             </select>
                                         </td>
                                         <td>
+                                            {isManualEditing && (
+                                                <div style={{ marginBottom: '8px' }}>
+                                                    <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginBottom: '2px', fontWeight: 600 }}>Item ID</label>
+                                                    <input
+                                                        className="form-control"
+                                                        value={editItem?.id || ''}
+                                                        onChange={e => {
+                                                            const newId = e.target.value.trim().toUpperCase();
+                                                            setEditItem(prev => prev ? { ...prev, id: newId } : null);
+                                                        }}
+                                                        style={{ fontSize: '0.8rem' }}
+                                                    />
+                                                </div>
+                                            )}
+                                            <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginBottom: '2px', fontWeight: 600 }}>Description</label>
                                             <input
                                                 className="form-control"
                                                 value={editItem?.description}
@@ -138,6 +215,7 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ inventory, saveInven
                                                 onChange={e => setEditItem(prev => prev ? { ...prev, description: e.target.value } : null)}
                                                 style={{ marginBottom: '8px' }}
                                             />
+                                            <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginBottom: '2px', fontWeight: 600 }}>Category</label>
                                             <input
                                                 className="form-control"
                                                 placeholder="Category"
@@ -184,7 +262,10 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ inventory, saveInven
                                                 <div style={{ fontSize: '0.65rem', color: '#94a3b8', marginTop: '0.25rem' }}>Catalog</div>
                                             )}
                                         </td>
-                                        <td><span style={{ fontWeight: 600 }}>{item.description}</span></td>
+                                        <td>
+                                            <span style={{ fontWeight: 600 }}>{item.description}</span>
+                                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '4px' }}>ID: {item.id}</div>
+                                        </td>
                                         <td><span style={{ fontWeight: 700, color: 'var(--secondary)' }}>₹{item.price.toLocaleString()}</span></td>
                                         <td>
                                             {item.type === 'Product' ? (

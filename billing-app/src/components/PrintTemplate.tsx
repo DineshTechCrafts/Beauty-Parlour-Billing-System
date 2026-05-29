@@ -3,44 +3,49 @@ import logoImg from '../assets/logo.jpeg';
 import stampImg from '../assets/stamp.jpeg';
 import { BillItem } from '../types';
 
-const numberToWords = (num: number) => {
-    const a = [
+/* ── number-to-words ─────────────────────────────────────────── */
+const numberToWords = (num: number): string => {
+    const ones = [
         '', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine',
         'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen',
-        'Seventeen', 'Eighteen', 'Nineteen'
+        'Seventeen', 'Eighteen', 'Nineteen',
     ];
-    const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+    const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
 
     const convert = (n: number): string => {
         if (n === 0) return '';
-        if (n < 20) return a[n];
-        if (n < 100) return `${b[Math.floor(n / 10)]} ${a[n % 10]}`.trim();
-        if (n < 1000) return `${a[Math.floor(n / 100)]} Hundred ${convert(n % 100)}`.trim();
+        if (n < 20) return ones[n];
+        if (n < 100) return `${tens[Math.floor(n / 10)]} ${ones[n % 10]}`.trim();
+        if (n < 1000) return `${ones[Math.floor(n / 100)]} Hundred ${convert(n % 100)}`.trim();
         if (n < 100000) return `${convert(Math.floor(n / 1000))} Thousand ${convert(n % 1000)}`.trim();
-        return '';
+        if (n < 10000000) return `${convert(Math.floor(n / 100000))} Lakh ${convert(n % 100000)}`.trim();
+        return `${convert(Math.floor(n / 10000000))} Crore ${convert(n % 10000000)}`.trim();
     };
 
     if (num === 0) return 'Zero';
     return convert(Math.floor(num)).trim();
 };
 
-const formatDisplayDate = (input?: string) => {
+/* ── date formatter ──────────────────────────────────────────── */
+const formatDisplayDate = (input?: string): string => {
     if (!input) return '—';
     const trimmed = input.trim();
     const dotted = trimmed.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/);
     if (dotted) {
         const [, dd, mm, yyyy] = dotted;
-        return `${dd.padStart(2, '0')}/${mm.padStart(2, '0')}/${yyyy}`;
+        return `${dd.padStart(2, '0')}.${mm.padStart(2, '0')}.${yyyy}`;
     }
-
     const parsed = new Date(trimmed);
     if (!Number.isNaN(parsed.getTime())) {
-        return parsed.toLocaleDateString('en-GB');
+        const dd = String(parsed.getDate()).padStart(2, '0');
+        const mm = String(parsed.getMonth() + 1).padStart(2, '0');
+        const yyyy = parsed.getFullYear();
+        return `${dd}.${mm}.${yyyy}`;
     }
-
     return trimmed;
 };
 
+/* ── props ───────────────────────────────────────────────────── */
 interface PrintTemplateProps {
     clientName: string;
     clientPhone: string;
@@ -58,8 +63,12 @@ interface PrintTemplateProps {
     billDate?: string;
     amountPaid?: number;
     amountPaidDate?: string;
+    /* Optional: previous unpaid balance carried forward */
+    oldBalanceBillRef?: string;   // e.g. "BILL:135(B), DATED:17.02.2026"
+    oldBalanceAmount?: number;    // e.g. 6000
 }
 
+/* ── component ───────────────────────────────────────────────── */
 export const PrintTemplate = React.forwardRef<HTMLDivElement, PrintTemplateProps>((props, ref) => {
     const {
         clientName, clientPhone, clientAddress, currentBillId,
@@ -68,60 +77,87 @@ export const PrintTemplate = React.forwardRef<HTMLDivElement, PrintTemplateProps
         grandTotal,
         billDate,
         amountPaid,
-        amountPaidDate
+        amountPaidDate,
+        oldBalanceBillRef,
+        oldBalanceAmount,
     } = props;
 
+    /* ── derived values ── */
     const validServices = serviceItems.filter(i => i.description.trim() !== '');
     const validProducts = productItems.filter(i => i.description.trim() !== '');
-    const serviceSubtotal = validServices.reduce((sum, item) => sum + Number(item.amount || 0), 0);
-    const productSubtotal = validProducts.reduce((sum, item) => sum + Number(item.amount || 0), 0);
-    const serviceNet = Math.max(0, serviceSubtotal - Number(serviceDiscountAmount || 0));
 
-    const formatValue = (value: number | string) => Math.round(Number(value || 0));
+    const serviceSubtotal = validServices.reduce((s, i) => s + Number(i.amount || 0), 0);
+    const productSubtotal = validProducts.reduce((s, i) => s + Number(i.amount || 0), 0);
+    const serviceNet      = Math.max(0, serviceSubtotal - Number(serviceDiscountAmount || 0));
+
+    const fmt = (v: number | string) => Math.round(Number(v || 0));
+
     const displayBillDate = formatDisplayDate(billDate);
-    const paymentDate = formatDisplayDate(amountPaidDate || billDate);
-    const roundedGrandTotal = formatValue(grandTotal);
-    const paidAmountValue = typeof amountPaid === 'number' ? formatValue(amountPaid) : roundedGrandTotal;
-    const safePaidAmount = Math.min(roundedGrandTotal, paidAmountValue);
-    const balanceDue = Math.max(0, roundedGrandTotal - safePaidAmount);
-    const amountInWords = numberToWords(safePaidAmount || roundedGrandTotal).toUpperCase();
+    const paymentDate     = formatDisplayDate(amountPaidDate || billDate);
 
+    const roundedGrandTotal = fmt(grandTotal);
+    const paidAmountValue   = typeof amountPaid === 'number' ? fmt(amountPaid) : roundedGrandTotal;
+    const safePaidAmount    = Math.min(roundedGrandTotal, paidAmountValue);
+
+    const oldBal      = Number(oldBalanceAmount || 0);
+    const totalDue    = roundedGrandTotal + oldBal;
+    const amountPaidOn = safePaidAmount || roundedGrandTotal;
+    const balanceDue  = Math.max(0, totalDue - amountPaidOn);
+
+    const amountInWords = numberToWords(amountPaidOn).toUpperCase();
+
+    /* ── render ── */
     return (
         <div ref={ref} className="print-only print-container">
-            <div className="header">
-                <img src={logoImg} className="logo" />
-                <div className="title">CASH RECEIPT</div>
+
+            {/* ── HEADER ── */}
+            <div className="pt-header">
+                <img src={logoImg} className="pt-logo" alt="logo" />
+                <div className="pt-title">CASH RECEIPT</div>
             </div>
 
-            <div className="divider" />
-
-            <div className="clinic-name">
+            {/* ── CLINIC NAME ── */}
+            <div className="pt-clinic-name">
                 AESTHETIC CLINIC BEAUTY STUDIO &amp; ACADEMY
             </div>
 
-            <table className="client-table">
+            {/* ── CLIENT DETAILS + BILL INFO ── */}
+            <table className="pt-client-table">
                 <tbody>
                     <tr>
-                        <td>
-                            <strong>Client Details</strong><br />
-                            Name: {clientName || '—'}<br />
-                            Address: {clientAddress || '—'}<br />
-                            Contact No: {clientPhone ? `+91 ${clientPhone}` : '—'}
+                        <td className="pt-client-left">
+                            <strong>Client Details</strong>
+                            <span>Name: &nbsp; {clientName || '—'}</span>
+                            <span>Address: {clientAddress || '—'}</span>
+                            <span>Contact No: {clientPhone || '—'}</span>
                         </td>
-                        <td className="right">
-                            Bill No : {currentBillId}<br />
-                            Date : {displayBillDate}
+                        <td className="pt-client-right">
+                            <table className="pt-bill-info-table">
+                                <tbody>
+                                    <tr>
+                                        <td className="pt-bi-label">Bill No</td>
+                                        <td className="pt-bi-value">{currentBillId}</td>
+                                    </tr>
+                                    <tr>
+                                        <td className="pt-bi-label">Date</td>
+                                        <td className="pt-bi-value">: {displayBillDate}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </td>
                     </tr>
                 </tbody>
             </table>
 
-            <table className="main-table service-table">
+            {/* ════════════════════════════════════════
+                TABLE A — SERVICES
+            ════════════════════════════════════════ */}
+            <table className="pt-main-table">
                 <colgroup>
-                    <col className="col-sno" />
-                    <col className="col-description" />
-                    <col className="col-rate" />
-                    <col className="col-amount" />
+                    <col className="pt-col-sno" />
+                    <col className="pt-col-desc" />
+                    <col className="pt-col-rate" />
+                    <col className="pt-col-amt" />
                 </colgroup>
                 <thead>
                     <tr>
@@ -131,43 +167,56 @@ export const PrintTemplate = React.forwardRef<HTMLDivElement, PrintTemplateProps
                         <th>AMOUNT ₹</th>
                     </tr>
                 </thead>
-
                 <tbody>
-                    {validServices.map((item, index) => (
-                        <tr key={`service-${index}`}>
-                            <td>{index + 1}</td>
-                            <td>{item.description}</td>
-                            <td>{formatValue(item.price)}</td>
-                            <td>{formatValue(item.amount)}</td>
-                        </tr>
-                    ))}
+                    {validServices.length > 0
+                        ? validServices.map((item, idx) => (
+                            <tr key={`svc-${idx}`}>
+                                <td className="pt-center">{idx + 1}</td>
+                                <td>{item.description}</td>
+                                <td className="pt-right">{fmt(item.price)}</td>
+                                <td className="pt-right">{fmt(item.amount)}</td>
+                            </tr>
+                        ))
+                        : (
+                            <tr>
+                                <td className="pt-center">—</td>
+                                <td>NA</td>
+                                <td className="pt-right">0</td>
+                                <td className="pt-right">0</td>
+                            </tr>
+                        )
+                    }
 
-                    <tr>
-                        <td colSpan={2}></td>
-                        <td className="label-cell">SUB TOTAL</td>
-                        <td className="amount-cell">{formatValue(serviceSubtotal)}</td>
+                    {/* summary rows — empty spans only S.NO, label spans DESCRIPTION+RATE */}
+                    <tr className="pt-summary-row">
+                        <td></td>
+                        <td colSpan={2} className="pt-label">SUB TOTAL</td>
+                        <td className="pt-right">{fmt(serviceSubtotal)}</td>
                     </tr>
-
-                    <tr>
-                        <td colSpan={2}></td>
-                        <td className="label-cell">DISCOUNT</td>
-                        <td className="amount-cell">{serviceDiscountAmount ? `-${formatValue(serviceDiscountAmount)}` : ''}</td>
+                    <tr className="pt-summary-row">
+                        <td></td>
+                        <td colSpan={2} className="pt-label">DISCOUNT</td>
+                        <td className="pt-right">
+                            {serviceDiscountAmount ? fmt(serviceDiscountAmount) : 0}
+                        </td>
                     </tr>
-
-                    <tr>
-                        <td colSpan={2}></td>
-                        <td className="label-cell"><strong>TOTAL (A)</strong></td>
-                        <td className="amount-cell"><strong>{formatValue(serviceNet)}</strong></td>
+                    <tr className="pt-summary-row pt-total-row">
+                        <td></td>
+                        <td colSpan={2} className="pt-label"><strong>TOTAL (A)</strong></td>
+                        <td className="pt-right"><strong>{fmt(serviceNet)}</strong></td>
                     </tr>
                 </tbody>
             </table>
 
-            <table className="main-table product-table">
+            {/* ════════════════════════════════════════
+                TABLE B — PRODUCTS / ITEMS
+            ════════════════════════════════════════ */}
+            <table className="pt-main-table pt-product-table" style={{ marginTop: '10px' }}>
                 <colgroup>
-                    <col className="col-sno" />
-                    <col className="col-description" />
-                    <col className="col-qty" />
-                    <col className="col-amount-wide" />
+                    <col className="pt-col-sno" />
+                    <col className="pt-col-desc-wide" />
+                    <col className="pt-col-qty" />
+                    <col className="pt-col-amt" />
                 </colgroup>
                 <thead>
                     <tr>
@@ -177,86 +226,100 @@ export const PrintTemplate = React.forwardRef<HTMLDivElement, PrintTemplateProps
                         <th>AMOUNT ₹</th>
                     </tr>
                 </thead>
-
                 <tbody>
-                    {validProducts.map((item, index) => (
-                        <tr key={`product-${index}`}>
-                            <td>{index + 1}</td>
-                            <td>{item.description}</td>
-                            <td>{item.quantity}</td>
-                            <td>{formatValue(item.amount)}</td>
+                    {validProducts.length > 0
+                        ? validProducts.map((item, idx) => (
+                            <tr key={`prd-${idx}`}>
+                                <td className="pt-center">{idx + 1}</td>
+                                <td>{item.description}</td>
+                                <td className="pt-center">{item.quantity}</td>
+                                <td className="pt-right">{fmt(item.amount)}</td>
+                            </tr>
+                        ))
+                        : (
+                            <tr>
+                                <td className="pt-center">—</td>
+                                <td>NA</td>
+                                <td className="pt-center">0</td>
+                                <td className="pt-right">0</td>
+                            </tr>
+                        )
+                    }
+
+                    {/* empty spans only S.NO, label spans ITEMS+QTY */}
+                    <tr className="pt-summary-row">
+                        <td></td>
+                        <td colSpan={2} className="pt-label">SUB TOTAL</td>
+                        <td className="pt-right">{fmt(productSubtotal)}</td>
+                    </tr>
+                    <tr className="pt-summary-row">
+                        <td></td>
+                        <td colSpan={2} className="pt-label">DISCOUNT</td>
+                        <td className="pt-right">0</td>
+                    </tr>
+                    <tr className="pt-summary-row pt-total-row">
+                        <td></td>
+                        <td colSpan={2} className="pt-label"><strong>TOTAL (B)</strong></td>
+                        <td className="pt-right"><strong>{fmt(productSubtotal)}</strong></td>
+                    </tr>
+
+                    {/* Grand totals section — spans full width */}
+                    <tr className="pt-grand-row">
+                        <td colSpan={3} className="pt-label"><strong>GRAND TOTAL (A+B)</strong></td>
+                        <td className="pt-right"><strong>{roundedGrandTotal}</strong></td>
+                    </tr>
+
+                    {oldBal > 0 && oldBalanceBillRef && (
+                        <tr className="pt-grand-row">
+                            <td colSpan={3} className="pt-label">
+                                <strong>OLD BALANCE DUE AMOUNT ({oldBalanceBillRef})</strong>
+                            </td>
+                            <td className="pt-right"><strong>{fmt(oldBal)}</strong></td>
                         </tr>
-                    ))}
+                    )}
 
-                    <tr>
-                        <td colSpan={2}></td>
-                        <td className="label-cell">SUB TOTAL</td>
-                        <td className="amount-cell">{formatValue(productSubtotal)}</td>
-                    </tr>
-
-                    <tr>
-                        <td colSpan={2}></td>
-                        <td className="label-cell">DISCOUNT</td>
-                        <td className="amount-cell"></td>
-                    </tr>
-
-                    <tr>
-                        <td colSpan={2}></td>
-                        <td className="label-cell"><strong>TOTAL (B)</strong></td>
-                        <td className="amount-cell"><strong>{formatValue(productSubtotal)}</strong></td>
-                    </tr>
-
-                    <tr>
-                        <td colSpan={2}></td>
-                        <td className="label-cell"><strong>GRAND TOTAL (A+B)</strong></td>
-                        <td className="amount-cell"><strong>{roundedGrandTotal}</strong></td>
-                    </tr>
-
-                    <tr>
-                        <td colSpan={2}></td>
-                        <td className="label-cell"><strong>NET AMOUNT</strong></td>
-                        <td className="amount-cell"><strong>{roundedGrandTotal}</strong></td>
-                    </tr>
-
-                    <tr>
-                        <td colSpan={2}></td>
-                        <td className="label-cell">
+                    <tr className="pt-grand-row">
+                        <td colSpan={3} className="pt-label">
                             <strong>AMOUNT PAID ON {paymentDate}</strong>
                         </td>
-                        <td className="amount-cell"><strong>{safePaidAmount || ''}</strong></td>
+                        <td className="pt-right"><strong>{amountPaidOn}</strong></td>
                     </tr>
 
-                    <tr>
-                        <td colSpan={2}></td>
-                        <td className="label-cell"><strong>. BALANCE DUE AMOUNT</strong></td>
-                        <td className="amount-cell"><strong>{balanceDue}</strong></td>
+                    <tr className="pt-grand-row pt-balance-row">
+                        <td colSpan={3} className="pt-label"><strong>BALANCE DUE AMOUNT</strong></td>
+                        <td className="pt-right"><strong>{balanceDue}</strong></td>
                     </tr>
                 </tbody>
             </table>
 
-            <div className="words">
+            {/* ── AMOUNT IN WORDS ── */}
+            <div className="pt-words">
                 AMOUNT PAID IN WORDS: {amountInWords} RUPEES.
             </div>
 
-            <img src={stampImg} className="stamp" />
-
-            <div className="note">
-                <strong>NOTE:</strong> Items Once Sold Will not be return back and non-refundable.
-            </div>
-
-            <div className="thank">
-                THANK YOU...
-            </div>
-
-            <div className="footer">
-                <div className="footer-line" />
-                <div className="tagline">
-                    Bring Out the beauty in you... <span className="green-text">Save Paper, Save Trees, Save Earth...</span>
+            {/* ── NOTE + STAMP ROW ── */}
+            <div className="pt-note-stamp-row">
+                <div className="pt-note-block">
+                    <p className="pt-note">
+                        <strong>NOTE:</strong> Items Once Sold Will not be return back and non-refundable.
+                    </p>
+                    <p className="pt-thank">THANK YOU...</p>
                 </div>
-                <div className="address">
-                    No: 6C, Kamarajar Road, Kanchipuram - 631 501 &nbsp; &nbsp; Phone: 72006 50094
+                <div className="pt-stamp-block">
+                    <img src={stampImg} className="pt-stamp" alt="stamp" />
                 </div>
             </div>
+
+            {/* ── FOOTER ── */}
+            <div className="pt-footer">
+                <div className="pt-footer-line" />
+                <div className="pt-tagline">
+                    Bring Out the beauty in you...&nbsp;
+                    <span className="pt-tree">🌳</span>&nbsp;
+                    <span className="pt-green">Save Paper, Save Trees, Save Earth…</span>
+                </div>
+            </div>
+
         </div>
     );
 });
