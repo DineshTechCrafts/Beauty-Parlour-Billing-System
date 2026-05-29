@@ -20,33 +20,35 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ inventory, saveInven
     };
 
     const cancelEdit = () => {
-        if (editItem) {
-            const originalItem = inventory.find(i => i.id === editItem.id);
-            if (originalItem && (originalItem.description === 'New Product' || originalItem.description === 'New Service' || originalItem.description.trim() === '')) {
-                saveInventory(inventory.filter(i => i.id !== editItem.id));
-            }
-        }
         setEditingId(null);
         setEditItem(null);
     };
 
     const saveEdit = () => {
         if (editItem) {
-            if (editItem.description === 'New Product' || editItem.description === 'New Service' || editItem.description.trim() === '') {
-                saveInventory(inventory.filter(i => i.id !== editItem.id));
-            } else {
-                const isIdTaken = inventory.some(i => i.id === editItem.id && i.id !== editingId);
-                if (isIdTaken) {
-                    alert(`Error: The ID "${editItem.id}" is already in use by another item. Please choose a unique ID.`);
-                    return;
-                }
-                if (!editItem.id.trim()) {
-                    alert('Error: Item ID cannot be empty.');
-                    return;
-                }
-                const newList = inventory.map(i => i.id === editingId ? editItem : i);
-                saveInventory(newList);
+            const trimmedDesc = (editItem.description || '').trim();
+            if (!trimmedDesc || trimmedDesc === 'New Product' || trimmedDesc === 'New Service') {
+                alert('Please enter a valid description before saving.');
+                return;
             }
+            const isIdTaken = inventory.some(i => i.id === editItem.id && i.id !== editingId);
+            if (isIdTaken) {
+                alert(`Error: The ID "${editItem.id}" is already in use by another item. Please choose a unique ID.`);
+                return;
+            }
+            if (!editItem.id.trim()) {
+                alert('Error: Item ID cannot be empty.');
+                return;
+            }
+
+            const isNew = !inventory.some(i => i.id === editingId);
+            let newList;
+            if (isNew) {
+                newList = [editItem, ...inventory];
+            } else {
+                newList = inventory.map(i => i.id === editingId ? editItem : i);
+            }
+            saveInventory(newList);
             setEditingId(null);
             setEditItem(null);
         }
@@ -76,8 +78,8 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ inventory, saveInven
             quantity: type === 'Product' ? 0 : undefined,
             source: 'manual'
         };
-        saveInventory([newItem, ...inventory]);
-        startEdit(newItem);
+        setEditingId(newItem.id);
+        setEditItem(newItem);
     };
 
     const deleteRow = (id: string) => {
@@ -153,6 +155,16 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ inventory, saveInven
         });
     }, [inventory, filterType, search, editingId]);
 
+    const displayItems = React.useMemo(() => {
+        if (editingId && editItem && !inventory.some(i => i.id === editingId)) {
+            const matchesType = filterType === 'All' || editItem.type === filterType;
+            if (matchesType) {
+                return [editItem, ...filtered];
+            }
+        }
+        return filtered;
+    }, [filtered, editingId, editItem, inventory, filterType]);
+
     return (
         <div className="catalog-mgmt-flow">
             <div className="card no-print" style={{ marginBottom: '2rem', paddingBottom: '1rem' }}>
@@ -193,7 +205,7 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ inventory, saveInven
                         </tr>
                     </thead>
                     <tbody>
-                        {filtered.map((item) => {
+                        {displayItems.map((item) => {
                             const isEditing = editingId === item.id;
                             const isManualEditing = isEditing && editItem?.source === 'manual';
                             const safeQuantity = Math.max(0, Number(item.quantity ?? 0));
@@ -316,7 +328,7 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ inventory, saveInven
                             </tr>
                         );
                         })}
-                        {filtered.length === 0 && (
+                        {displayItems.length === 0 && (
                             <tr><td colSpan={6} style={{ textAlign: 'center', padding: '4rem', color: 'var(--text-muted)' }}>Inventory is empty.</td></tr>
                         )}
                     </tbody>
