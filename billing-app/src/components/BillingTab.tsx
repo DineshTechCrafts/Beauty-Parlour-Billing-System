@@ -69,11 +69,16 @@ const ComboSelect: React.FC<{
     // If open, we show their search string. If closed, we show the selected catalog item description if available, else just the raw value.
     const displayValue = open ? search : (selectedOption ? selectedOption.description : value);
 
-    const filtered = options.filter(o => 
-        o.description.toLowerCase().includes(search.toLowerCase()) || 
-        (o.category || '').toLowerCase().includes(search.toLowerCase()) ||
-        (o.id || '').toLowerCase().includes(search.toLowerCase())
-    );
+    const filtered = options.filter(o => {
+        if (!search) return true;
+        if ((o.id || '').includes(search)) return true;
+        
+        const cleanSearch = search.replace(/\s+/g, '').toLowerCase();
+        const cleanDesc = (o.description || '').replace(/\s+/g, '').toLowerCase();
+        const cleanCat = (o.category || '').replace(/\s+/g, '').toLowerCase();
+        
+        return cleanDesc.includes(cleanSearch) || cleanCat.includes(cleanSearch);
+    });
 
     return (
         <div ref={wrapperRef} style={{ position: 'relative', width: '100%' }}>

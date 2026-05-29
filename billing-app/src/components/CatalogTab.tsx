@@ -60,10 +60,20 @@ export const CatalogTab: React.FC<CatalogTabProps> = ({ inventory }) => {
         let result = allServices.filter(item => {
             const cat = item.category || 'General';
             const price = Number(item.price);
-            const desc = (item.description || '').toLowerCase();
             const matchCat   = selectedCategory === 'All' || cat === selectedCategory;
             const matchPrice = price >= range.min && price <= range.max;
-            const matchSearch = search.trim() === '' || desc.includes(search.toLowerCase());
+            
+            const matchSearch = (() => {
+                if (!search) return true;
+                if ((item.id || '').includes(search)) return true;
+                
+                const cleanSearch = search.replace(/\s+/g, '').toLowerCase();
+                const cleanDesc = (item.description || '').replace(/\s+/g, '').toLowerCase();
+                const cleanCat = (item.category || '').replace(/\s+/g, '').toLowerCase();
+                
+                return cleanDesc.includes(cleanSearch) || cleanCat.includes(cleanSearch);
+            })();
+
             return matchCat && matchPrice && matchSearch;
         });
 

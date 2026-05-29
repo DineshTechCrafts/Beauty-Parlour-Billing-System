@@ -1070,16 +1070,19 @@ svg {
 }
 .ctab-search-icon {
   position: absolute;
-  left: 12px;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
   font-size: 1rem;
   pointer-events: none;
+  z-index: 1;
 }
 .ctab-search-input {
   width: 100%;
-  padding: 0.6rem 2.5rem 0.6rem 2.4rem;
+  padding: 0.55rem 2.2rem 0.55rem 2.2rem;
   border: 1.5px solid var(--border-light);
   border-radius: var(--radius-full);
-  font-size: 0.875rem;
+  font-size: 0.85rem;
   font-family: 'Inter', sans-serif;
   background: #f8fafc;
   color: var(--text-main);
@@ -1093,15 +1096,20 @@ svg {
 }
 .ctab-search-clear {
   position: absolute;
-  right: 10px;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
   background: none;
   border: none;
   cursor: pointer;
   font-size: 0.8rem;
   color: var(--text-muted);
-  padding: 2px 4px;
+  padding: 4px;
   border-radius: 50%;
   transition: color 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .ctab-search-clear:hover { color: #ef4444; }
 
@@ -1119,10 +1127,10 @@ svg {
   z-index: 1;
 }
 .ctab-select {
-  padding: 0.6rem 1rem 0.6rem 2.2rem;
+  padding: 0.55rem 1rem 0.55rem 2.2rem;
   border: 1.5px solid var(--border-light);
   border-radius: var(--radius-full);
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   font-family: 'Inter', sans-serif;
   background: #f8fafc;
   color: var(--text-main);
@@ -1181,7 +1189,9 @@ svg {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 0.25rem;
+  padding: 0 0.5rem;
+  margin-top: 0.5rem;
+  margin-bottom: 0.75rem;
 }
 .ctab-results-count {
   font-size: 0.82rem;
