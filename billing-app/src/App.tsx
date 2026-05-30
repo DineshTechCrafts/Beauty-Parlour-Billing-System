@@ -4,6 +4,7 @@ import './index.css';
 import { Sidebar } from './components/Sidebar';
 import { BillingTab } from './components/BillingTab';
 import { CatalogTab } from './components/CatalogTab';
+import { ProductsTab } from './components/ProductsTab';
 import { InventoryTab } from './components/InventoryTab';
 import { BillHistoryTab } from './components/BillHistoryTab';
 import { CustomerTab } from './components/CustomerTab';
@@ -589,18 +590,20 @@ export default function App() {
         <div className="tabs-container">
           <header className="header no-print">
             <h1>
-              {activeTab === 'billing' && 'Premium Billing System'}
-              {activeTab === 'catalog' && 'Price Catalog Definitions'}
-              {activeTab === 'inventory' && 'Inventory Records'}
-              {activeTab === 'history' && 'Invoice Archive'}
-              {activeTab === 'customers' && 'Customer Intelligence'}
+              {activeTab === 'billing'  && 'Premium Billing System'}
+              {activeTab === 'products' && 'Products Menu'}
+              {activeTab === 'catalog'  && 'Price Catalog Definitions'}
+              {activeTab === 'inventory'&& 'Inventory Records'}
+              {activeTab === 'history'  && 'Invoice Archive'}
+              {activeTab === 'customers'&& 'Customer Intelligence'}
             </h1>
             <p>
-              {activeTab === 'billing' && 'Generate professional clinic invoices and manage one-time transactions.'}
-              {activeTab === 'catalog' && 'View current service menu and standard pricing definitions.'}
-              {activeTab === 'inventory' && 'Maintain retail stock levels and category organization.'}
-              {activeTab === 'history' && 'Access past records and track business performance.'}
-              {activeTab === 'customers' && 'Search loyalty trends, review visit history, and audit session progress.'}
+              {activeTab === 'billing'  && 'Generate professional clinic invoices and manage one-time transactions.'}
+              {activeTab === 'products' && 'Browse the retail product catalog with live stock availability.'}
+              {activeTab === 'catalog'  && 'View current service menu and standard pricing definitions.'}
+              {activeTab === 'inventory'&& 'Maintain retail stock levels and category organization.'}
+              {activeTab === 'history'  && 'Access past records and track business performance.'}
+              {activeTab === 'customers'&& 'Search loyalty trends, review visit history, and audit session progress.'}
             </p>
           </header>
 
@@ -661,6 +664,7 @@ export default function App() {
             </div>
           )}
 
+          {activeTab === 'products' && <ProductsTab inventory={inventory} />}
           {activeTab === 'catalog' && <CatalogTab inventory={inventory} />}
           {activeTab === 'inventory' && <InventoryTab inventory={inventory} saveInventory={saveInventory} />}
           {activeTab === 'history' && <BillHistoryTab bills={historyBills} onEdit={onEditBill} />}
