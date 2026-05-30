@@ -77,6 +77,12 @@ export default function App() {
   const [applyGST, setApplyGST] = useState(true);
   const [gstRate, setGstRate] = useState(9); // Default 9% CGST & 9% SGST
 
+  const [billingMode, setBillingMode] = useState<'b2c' | 'b2b'>('b2c');
+  const [placeOfSupply, setPlaceOfSupply] = useState('33'); // Tamil Nadu
+  const [buyerGstin, setBuyerGstin] = useState('');
+  const [buyerLegalName, setBuyerLegalName] = useState('');
+  const [buyerStateCode, setBuyerStateCode] = useState('33'); // Tamil Nadu
+
   const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [historyBills, setHistoryBills] = useState<Bill[]>([]);
@@ -179,7 +185,13 @@ export default function App() {
       productTotal: indexOf('ProductTotal'),
       taxableAmount: indexOf('TaxableAmount'),
       gstTotal: indexOf('GSTTotal'),
-      gstRate: indexOf('GstRate')
+      gstRate: indexOf('GstRate'),
+      billingMode: indexOf('BillingMode'),
+      placeOfSupply: indexOf('PlaceOfSupply'),
+      buyerGstin: indexOf('BuyerGstin'),
+      buyerLegalName: indexOf('BuyerLegalName'),
+      buyerStateCode: indexOf('BuyerStateCode'),
+      igst: indexOf('IGST'),
     };
 
     const valueAt = (cols: string[], idx: number) => (idx >= 0 && idx < cols.length ? cols[idx] : '');
@@ -206,6 +218,12 @@ export default function App() {
           gstTotal: valueAt(cols, indexes.gstTotal),
           gstRate: valueAt(cols, indexes.gstRate),
           total: valueAt(cols, indexes.total),
+          billingMode: (valueAt(cols, indexes.billingMode) as 'b2c' | 'b2b') || undefined,
+          placeOfSupply: valueAt(cols, indexes.placeOfSupply) || undefined,
+          buyerGstin: valueAt(cols, indexes.buyerGstin) || undefined,
+          buyerLegalName: valueAt(cols, indexes.buyerLegalName) || undefined,
+          buyerStateCode: valueAt(cols, indexes.buyerStateCode) || undefined,
+          igst: valueAt(cols, indexes.igst) || undefined,
           items: []
         });
       }
@@ -275,6 +293,11 @@ export default function App() {
     setClientName(bill.clientName);
     setClientPhone(bill.clientPhone || '');
     setClientAddress(bill.clientAddress || '');
+    setBillingMode((bill.billingMode as 'b2c' | 'b2b') || 'b2c');
+    setPlaceOfSupply(bill.placeOfSupply || '33');
+    setBuyerGstin(bill.buyerGstin || '');
+    setBuyerLegalName(bill.buyerLegalName || '');
+    setBuyerStateCode(bill.buyerStateCode || '33');
 
     const stripSessionSuffix = (value: string) => value.replace(/\s*\((\d+\/\d+|Full Payment)\)\s*$/, '').trim();
     const findCatalogItem = (value: string) => {
@@ -413,9 +436,12 @@ export default function App() {
     const combinedSubTotalPreDiscount = serviceSubTotalPreDiscount + productSubTotalPreDiscount;
 
     const taxableAmountVal = roundToTwo(serviceSubTotalPostDiscount + productSubTotalPostDiscount);
-    const cgstAmount = roundToTwo(applyGST ? taxableAmountVal * (gstRate / 100) : 0);
-    const sgstAmount = roundToTwo(applyGST ? taxableAmountVal * (gstRate / 100) : 0);
-    const gstTotalAmount = roundToTwo(cgstAmount + sgstAmount);
+    const SELLER_STATE = '33';
+    const isIGST = billingMode === 'b2b' && buyerStateCode !== SELLER_STATE;
+    const cgstAmount = roundToTwo(applyGST && !isIGST ? taxableAmountVal * (gstRate / 100) : 0);
+    const sgstAmount = roundToTwo(applyGST && !isIGST ? taxableAmountVal * (gstRate / 100) : 0);
+    const igstAmount = roundToTwo(applyGST && isIGST ? taxableAmountVal * (gstRate * 2 / 100) : 0);
+    const gstTotalAmount = roundToTwo(cgstAmount + sgstAmount + igstAmount);
     const grandTotalVal = roundToTwo(taxableAmountVal + gstTotalAmount);
 
     const today = new Date();
@@ -441,11 +467,21 @@ export default function App() {
       gstTotal: toMoneyString(gstTotalAmount),
       total: toMoneyString(grandTotalVal),
       gstRate: String(applyGST ? gstRate : 0),
+      billingMode,
+      placeOfSupply,
+      buyerGstin: billingMode === 'b2b' ? buyerGstin : '',
+      buyerLegalName: billingMode === 'b2b' ? buyerLegalName : '',
+      buyerStateCode: billingMode === 'b2b' ? buyerStateCode : '',
+      igst: toMoneyString(igstAmount),
+      reverseCharge: 'No',
+      invoiceType: 'Regular',
       items: validItems.map(vi => ({
         description: vi.description,
         price: String(vi.price),
         quantity: String(vi.quantity),
-        amount: String(vi.amount)
+        amount: String(vi.amount),
+        sacHsnCode: vi.sacHsnCode || '',
+        unit: vi.unit || ''
       }))
     };
 
@@ -516,6 +552,11 @@ export default function App() {
     setClientName('');
     setClientPhone('');
     setClientAddress('');
+    setBillingMode('b2c');
+    setPlaceOfSupply('33');
+    setBuyerGstin('');
+    setBuyerLegalName('');
+    setBuyerStateCode('33');
     setProductItems([]);
     setServiceItems([createEmptyServiceItem()]);
     setProducedBill(null);
@@ -609,6 +650,11 @@ export default function App() {
               clientName={clientName} setClientName={setClientName}
               clientPhone={clientPhone} setClientPhone={setClientPhone}
               clientAddress={clientAddress} setClientAddress={setClientAddress}
+              billingMode={billingMode} setBillingMode={setBillingMode}
+              placeOfSupply={placeOfSupply} setPlaceOfSupply={setPlaceOfSupply}
+              buyerGstin={buyerGstin} setBuyerGstin={setBuyerGstin}
+              buyerLegalName={buyerLegalName} setBuyerLegalName={setBuyerLegalName}
+              buyerStateCode={buyerStateCode} setBuyerStateCode={setBuyerStateCode}
               productItems={productItems} setProductItems={setProductItems}
               serviceItems={serviceItems} setServiceItems={setServiceItems}
               applyGST={applyGST} setApplyGST={setApplyGST}

@@ -26,6 +26,9 @@ export interface BillItem {
   completedSittings?: number;
 
     paymentMode?: 'full' | 'per_sitting';
+
+  sacHsnCode?: string;
+  unit?: string;
 }
 
 export interface BillRow {
@@ -33,6 +36,8 @@ export interface BillRow {
     price: string;
     quantity: string;
     amount: string;
+    sacHsnCode?: string;
+    unit?: string;
 }
 
 export interface Bill {
@@ -52,6 +57,15 @@ export interface Bill {
   gstRate?: string;
     total: string;
     items: BillRow[];
+
+  billingMode?: 'b2c' | 'b2b';
+  placeOfSupply?: string;
+  buyerGstin?: string;
+  buyerLegalName?: string;
+  buyerStateCode?: string;
+  igst?: string;
+  reverseCharge?: string;
+  invoiceType?: string;
 }
 
 export interface Customer {
@@ -82,15 +96,18 @@ export interface InventoryItem {
     price: number;
     quantity?: number;
 
-    // ✅ ADD THIS
-    gst?: number; // only for products
-    totalSittings?: number; // only for services
+    gst?: number;
+    totalSittings?: number;
 
-  priceType?: string;
-  notes?: string;
-  brand?: string;
-  subcategory?: string;
-  source?: 'catalog-service' | 'catalog-product' | 'manual';
+    priceType?: string;
+    notes?: string;
+    brand?: string;
+    subcategory?: string;
+    source?: 'catalog-service' | 'catalog-product' | 'manual';
+
+    sacHsnCode?: string;
+    unit?: string;
+    mrp?: number;
 }
 
 declare global {

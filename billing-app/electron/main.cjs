@@ -275,13 +275,13 @@ ipcMain.handle('save-bill', async (event, billData) => {
         const isNew = !fs.existsSync(csvFile);
         const baseHeader = 'BillId,Date,ClientName,ClientPhone,ClientAddress,SubTotal,Discount,CGST,SGST,Total,ItemDescription,Price,Quantity,Amount';
         const extendedHeader = `${baseHeader},ServiceTotal,ProductTotal,TaxableAmount,GSTTotal,GstRate`;
-        const extraColumnPlaceholders = ','.repeat(5);
+        const fullHeader = `${extendedHeader},BillingMode,PlaceOfSupply,BuyerGstin,BuyerLegalName,BuyerStateCode,IGST,ReverseCharge,InvoiceType,SacHsnCode,Unit`;
 
         let existingLines = [];
         if (!isNew) {
             const data = fs.readFileSync(csvFile, 'utf8');
             const lines = data.split('\n');
-            let header = lines[0] || extendedHeader;
+            let header = lines[0] || fullHeader;
             const reqId = String(billData.id);
             const filteredLines = lines.slice(1).filter(line => {
                 if (!line.trim()) return false;
@@ -289,14 +289,21 @@ ipcMain.handle('save-bill', async (event, billData) => {
                 return firstCol !== reqId; // Exclude if editing the same bill
             });
 
-            const headerHasExtensions = /ServiceTotal/i.test(header);
-            if (!headerHasExtensions) {
-                header = extendedHeader;
+            const headerHasExtended = /ServiceTotal/i.test(header);
+            const headerHasFull = /BillingMode/i.test(header);
+            if (!headerHasExtended) {
+                // Very old format: add all 15 new columns
+                header = fullHeader;
+                existingLines = [header, ...filteredLines.map(line => `${line}${','.repeat(15)}`)];
+            } else if (!headerHasFull) {
+                // Extended but missing new columns: add 10
+                header = fullHeader;
+                existingLines = [header, ...filteredLines.map(line => `${line}${','.repeat(10)}`)];
+            } else {
+                existingLines = [header, ...filteredLines];
             }
-
-            existingLines = [header, ...filteredLines.map(line => (headerHasExtensions ? line : `${line}${extraColumnPlaceholders}`))];
         } else {
-            existingLines = [extendedHeader];
+            existingLines = [fullHeader];
         }
 
         let newRowsStr = '';
@@ -326,8 +333,17 @@ ipcMain.handle('save-bill', async (event, billData) => {
         const taxableAmount = sanitize(billData.taxableAmount || billData.subTotal || 0);
         const gstTotal = sanitize(billData.gstTotal || (Number(billData.cgst || 0) + Number(billData.sgst || 0)));
         const gstRateRecorded = sanitize(billData.gstRate || 0);
+        const billingModeCol = sanitize(billData.billingMode || 'b2c');
+        const placeOfSupplyCol = sanitize(billData.placeOfSupply || '');
+        const buyerGstinCol = sanitize(billData.buyerGstin || '');
+        const buyerLegalNameCol = sanitize(billData.buyerLegalName || '');
+        const buyerStateCodeCol = sanitize(billData.buyerStateCode || '');
+        const igstCol = sanitize(billData.igst || 0);
+        const reverseChargeCol = sanitize(billData.reverseCharge || 'No');
+        const invoiceTypeCol = sanitize(billData.invoiceType || 'Regular');
 
         const sharedColumns = [billId, dateStr, clientName, clientPhone, clientAddress, subTotal, discount, cgst, sgst, total];
+        const sharedTailColumns = [serviceTotal, productTotal, taxableAmount, gstTotal, gstRateRecorded, billingModeCol, placeOfSupplyCol, buyerGstinCol, buyerLegalNameCol, buyerStateCodeCol, igstCol, reverseChargeCol, invoiceTypeCol];
 
         if (billData.items && billData.items.length > 0) {
             billData.items.forEach(item => {
@@ -335,6 +351,8 @@ ipcMain.handle('save-bill', async (event, billData) => {
                 const itemPrice = sanitize(item.price);
                 const itemQty = sanitize(item.quantity);
                 const itemAmount = sanitize(item.amount);
+                const sacHsnCode = sanitize(item.sacHsnCode || '');
+                const unit = sanitize(item.unit || '');
 
                 const row = [
                     ...sharedColumns,
@@ -342,11 +360,9 @@ ipcMain.handle('save-bill', async (event, billData) => {
                     itemPrice,
                     itemQty,
                     itemAmount,
-                    serviceTotal,
-                    productTotal,
-                    taxableAmount,
-                    gstTotal,
-                    gstRateRecorded
+                    ...sharedTailColumns,
+                    sacHsnCode,
+                    unit
                 ].join(',');
                 newRowsStr += `${row}\n`;
             });
@@ -357,11 +373,9 @@ ipcMain.handle('save-bill', async (event, billData) => {
                 '',
                 '',
                 '',
-                serviceTotal,
-                productTotal,
-                taxableAmount,
-                gstTotal,
-                gstRateRecorded
+                ...sharedTailColumns,
+                '',
+                ''
             ].join(',');
             newRowsStr += `${row}\n`;
         }

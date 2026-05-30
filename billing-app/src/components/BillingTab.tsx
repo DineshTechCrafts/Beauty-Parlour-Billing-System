@@ -2,6 +2,110 @@ import React, { useMemo } from 'react';
 import { BillItem, InventoryItem, Customer } from '../types';
 import { Icons } from './Icons';
 
+const INDIA_STATES = [
+    { code: '01', name: 'Jammu & Kashmir' },
+    { code: '02', name: 'Himachal Pradesh' },
+    { code: '03', name: 'Punjab' },
+    { code: '04', name: 'Chandigarh' },
+    { code: '05', name: 'Uttarakhand' },
+    { code: '06', name: 'Haryana' },
+    { code: '07', name: 'Delhi' },
+    { code: '08', name: 'Rajasthan' },
+    { code: '09', name: 'Uttar Pradesh' },
+    { code: '10', name: 'Bihar' },
+    { code: '11', name: 'Sikkim' },
+    { code: '12', name: 'Arunachal Pradesh' },
+    { code: '13', name: 'Nagaland' },
+    { code: '14', name: 'Manipur' },
+    { code: '15', name: 'Mizoram' },
+    { code: '16', name: 'Tripura' },
+    { code: '17', name: 'Meghalaya' },
+    { code: '18', name: 'Assam' },
+    { code: '19', name: 'West Bengal' },
+    { code: '20', name: 'Jharkhand' },
+    { code: '21', name: 'Odisha' },
+    { code: '22', name: 'Chhattisgarh' },
+    { code: '23', name: 'Madhya Pradesh' },
+    { code: '24', name: 'Gujarat' },
+    { code: '25', name: 'Daman & Diu and DNH' },
+    { code: '26', name: 'Dadra & Nagar Haveli' },
+    { code: '27', name: 'Maharashtra' },
+    { code: '28', name: 'Andhra Pradesh (old)' },
+    { code: '29', name: 'Karnataka' },
+    { code: '30', name: 'Goa' },
+    { code: '31', name: 'Lakshadweep' },
+    { code: '32', name: 'Kerala' },
+    { code: '33', name: 'Tamil Nadu' },
+    { code: '34', name: 'Puducherry' },
+    { code: '35', name: 'Andaman & Nicobar Islands' },
+    { code: '36', name: 'Telangana' },
+    { code: '37', name: 'Andhra Pradesh' },
+    { code: '38', name: 'Ladakh' },
+    { code: '97', name: 'Other Territory' },
+    { code: '99', name: 'Centre Jurisdiction' },
+];
+
+export const SELLER_STATE_CODE = '33';
+
+const StateSelect: React.FC<{
+    value: string;
+    onChange: (code: string) => void;
+    placeholder?: string;
+}> = ({ value, onChange, placeholder = 'Select State...' }) => {
+    const [open, setOpen] = React.useState(false);
+    const [search, setSearch] = React.useState('');
+    const wrapperRef = React.useRef<HTMLDivElement>(null);
+
+    React.useEffect(() => {
+        const handleClick = (e: MouseEvent) => {
+            if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+                setOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClick);
+        return () => document.removeEventListener('mousedown', handleClick);
+    }, []);
+
+    const selectedState = INDIA_STATES.find(s => s.code === value);
+    const displayValue = open ? search : (selectedState ? `${selectedState.name} (${selectedState.code})` : '');
+
+    const filtered = React.useMemo(() => {
+        if (!search) return INDIA_STATES;
+        const q = search.toLowerCase();
+        return INDIA_STATES.filter(s => s.name.toLowerCase().includes(q) || s.code.includes(q));
+    }, [search]);
+
+    return (
+        <div ref={wrapperRef} style={{ position: 'relative', width: '100%' }}>
+            <input
+                className="form-control"
+                style={{ fontSize: '0.85rem' }}
+                placeholder={placeholder}
+                value={displayValue}
+                onChange={e => { setSearch(e.target.value); setOpen(true); }}
+                onFocus={() => { setOpen(true); setSearch(''); }}
+            />
+            {open && (
+                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 9999, background: '#fff', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', maxHeight: '200px', overflowY: 'auto', boxShadow: 'var(--shadow-lg)', marginTop: '4px' }}>
+                    {filtered.map(state => (
+                        <div
+                            key={state.code}
+                            style={{ padding: '0.6rem 1rem', cursor: 'pointer', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                            onClick={() => { onChange(state.code); setOpen(false); setSearch(''); }}
+                            onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#f8fafc')}
+                            onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+                        >
+                            <span style={{ fontSize: '0.85rem' }}>{state.name}</span>
+                            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>{state.code}</span>
+                        </div>
+                    ))}
+                    {filtered.length === 0 && <div style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)' }}>No states found</div>}
+                </div>
+            )}
+        </div>
+    );
+};
+
 interface BillingTabProps {
     clientName: string;
     setClientName: (v: string) => void;
@@ -9,6 +113,17 @@ interface BillingTabProps {
     setClientPhone: (v: string) => void;
     clientAddress: string;
     setClientAddress: (v: string) => void;
+
+    billingMode: 'b2c' | 'b2b';
+    setBillingMode: (v: 'b2c' | 'b2b') => void;
+    placeOfSupply: string;
+    setPlaceOfSupply: (v: string) => void;
+    buyerGstin: string;
+    setBuyerGstin: (v: string) => void;
+    buyerLegalName: string;
+    setBuyerLegalName: (v: string) => void;
+    buyerStateCode: string;
+    setBuyerStateCode: (v: string) => void;
 
     productItems: BillItem[];
     setProductItems: React.Dispatch<React.SetStateAction<BillItem[]>>;
@@ -66,26 +181,21 @@ const ComboSelect: React.FC<{
     }, []);
 
     const selectedOption = options.find(o => o.id === value);
-    // If open, we show their search string. If closed, we show the selected catalog item description if available, else just the raw value.
     const displayValue = open ? search : (selectedOption ? selectedOption.description : value);
 
     const filtered = React.useMemo(() => {
         if (!search) return options;
 
-        // Filter options:
-        // For ID: exact substring match (preserving case and spacing)
-        // For name (description/category): space-insensitive & case-insensitive
         const matches = options.filter(o => {
             if ((o.id || '').includes(search)) return true;
 
             const cleanSearch = search.replace(/\s+/g, '').toLowerCase();
             const cleanDesc = (o.description || '').replace(/\s+/g, '').toLowerCase();
             const cleanCat = (o.category || '').replace(/\s+/g, '').toLowerCase();
-            
+
             return cleanDesc.includes(cleanSearch) || cleanCat.includes(cleanSearch);
         });
 
-        // Sort options:
         return matches.sort((a, b) => {
             const cleanSearch = search.replace(/\s+/g, '').toLowerCase();
 
@@ -96,25 +206,20 @@ const ComboSelect: React.FC<{
             const aCat = (a.category || '').toLowerCase();
             const bCat = (b.category || '').toLowerCase();
 
-            // 1. Exact ID match (case-sensitive and space-sensitive)
             if (aId === search && bId !== search) return -1;
             if (bId === search && aId !== search) return 1;
 
-            // 2. Exact description match (case-insensitive and space-insensitive)
             const cleanADesc = aDesc.replace(/\s+/g, '');
             const cleanBDesc = bDesc.replace(/\s+/g, '');
             if (cleanADesc === cleanSearch && cleanBDesc !== cleanSearch) return -1;
             if (cleanBDesc === cleanSearch && cleanADesc !== cleanSearch) return 1;
 
-            // 3. ID starts with search (exact)
             if (aId.startsWith(search) && !bId.startsWith(search)) return -1;
             if (bId.startsWith(search) && !aId.startsWith(search)) return 1;
 
-            // 4. Description starts with search (space/case-insensitive)
             if (cleanADesc.startsWith(cleanSearch) && !cleanBDesc.startsWith(cleanSearch)) return -1;
             if (cleanBDesc.startsWith(cleanSearch) && !cleanADesc.startsWith(cleanSearch)) return 1;
 
-            // 5. Category starts with search (space/case-insensitive)
             const cleanACat = aCat.replace(/\s+/g, '');
             const cleanBCat = bCat.replace(/\s+/g, '');
             if (cleanACat.startsWith(cleanSearch) && !cleanBCat.startsWith(cleanSearch)) return -1;
@@ -126,19 +231,19 @@ const ComboSelect: React.FC<{
 
     return (
         <div ref={wrapperRef} style={{ position: 'relative', width: '100%' }}>
-            <input 
+            <input
                 className="form-control"
                 style={{ fontSize: '0.85rem', fontWeight: 500 }}
                 placeholder={placeholder}
                 value={displayValue || ''}
-                onChange={e => { 
-                    setSearch(e.target.value); 
-                    setOpen(true); 
-                    onChange(null, e.target.value); 
+                onChange={e => {
+                    setSearch(e.target.value);
+                    setOpen(true);
+                    onChange(null, e.target.value);
                 }}
-                onFocus={() => { 
-                    setOpen(true); 
-                    setSearch(''); 
+                onFocus={() => {
+                    setOpen(true);
+                    setSearch('');
                 }}
                 onKeyDown={e => {
                     if (e.key === 'Enter') {
@@ -169,20 +274,20 @@ const ComboSelect: React.FC<{
                     {filtered.map(opt => {
                         const isExactIdMatch = (opt.id || '').toLowerCase() === search.trim().toLowerCase();
                         return (
-                            <div 
-                                key={opt.id} 
-                                style={{ 
-                                    padding: '0.75rem 1rem', 
-                                    borderBottom: '1px solid #f1f5f9', 
-                                    cursor: 'pointer', 
-                                    display: 'flex', 
-                                    justifyContent: 'space-between', 
+                            <div
+                                key={opt.id}
+                                style={{
+                                    padding: '0.75rem 1rem',
+                                    borderBottom: '1px solid #f1f5f9',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
                                     alignItems: 'center',
                                     backgroundColor: isExactIdMatch ? '#f0fdf4' : 'transparent'
                                 }}
-                                onClick={() => { 
-                                    onChange(opt.id, null); 
-                                    setOpen(false); 
+                                onClick={() => {
+                                    onChange(opt.id, null);
+                                    setOpen(false);
                                 }}
                                 onMouseEnter={e => (e.currentTarget.style.backgroundColor = isExactIdMatch ? '#dcfce7' : '#f8fafc')}
                                 onMouseLeave={e => (e.currentTarget.style.backgroundColor = isExactIdMatch ? '#f0fdf4' : 'transparent')}
@@ -206,6 +311,8 @@ const ComboSelect: React.FC<{
 
 export const BillingTab: React.FC<BillingTabProps> = ({
     clientName, setClientName, clientPhone, setClientPhone, clientAddress, setClientAddress,
+    billingMode, setBillingMode, placeOfSupply, setPlaceOfSupply,
+    buyerGstin, setBuyerGstin, buyerLegalName, setBuyerLegalName, buyerStateCode, setBuyerStateCode,
     productItems, setProductItems, serviceItems, setServiceItems,
     applyGST, setApplyGST, gstRate, setGstRate,
     inventory, handleProduceBill, currentBillId, sessions, customers
@@ -230,20 +337,21 @@ export const BillingTab: React.FC<BillingTabProps> = ({
 
         const servicePreDiscount = serviceItems.reduce((sum, item) => sum + getBaseAmount(item, false), 0);
         const productPreDiscount = productItems.reduce((sum, item) => sum + getBaseAmount(item, true), 0);
-        
+
         const serviceDiscountAmount = serviceItems.reduce((sum, item) => sum + (getBaseAmount(item, false) * Number(item.discount || 0) / 100), 0);
         const productDiscountAmount = productItems.reduce((sum, item) => sum + (getBaseAmount(item, true) * Number(item.discount || 0) / 100), 0);
         const discount = serviceDiscountAmount + productDiscountAmount;
 
         const serviceSubTotal = serviceItems.reduce((sum, item) => sum + Number(item.amount || 0), 0);
         const productSubTotal = productItems.reduce((sum, item) => sum + Number(item.amount || 0), 0);
-        
+
         const taxable = Math.max(0, serviceSubTotal + productSubTotal);
-        const gstHalf = applyGST ? taxable * (gstRate / 100) : 0;
-        const gstTotal = gstHalf * 2;
+
+        const isIGST = billingMode === 'b2b' && buyerStateCode !== SELLER_STATE_CODE;
+        const gstTotal = applyGST ? taxable * (gstRate * 2 / 100) : 0;
         const grandTotal = taxable + gstTotal;
-        return { servicePreDiscount, productPreDiscount, serviceSubTotal, productSubTotal, discount, taxable, gstTotal, grandTotal };
-    }, [serviceItems, productItems, applyGST, gstRate]);
+        return { servicePreDiscount, productPreDiscount, serviceSubTotal, productSubTotal, discount, taxable, gstTotal, grandTotal, isIGST };
+    }, [serviceItems, productItems, applyGST, gstRate, billingMode, buyerStateCode]);
 
     const handlePhoneChange = (raw: string) => {
         setClientPhone(raw);
@@ -330,11 +438,7 @@ export const BillingTab: React.FC<BillingTabProps> = ({
                     (!isProduct && (field === 'totalSittings' || field === 'completedSittings' || field === 'paymentMode'))
                 ) {
                     if (!isProduct) {
-                        // Allow completedSittings to exceed totalSittings without artificially clamping it, 
-                        // as the user wants to manually adjust these and let them do 2 of 2 or 1 of 1, 
-                        // but if they set totalSittings directly, we must ensure it matches logic.
                         const updatedItem = { ...updated };
-                        // We do not clamp here! They can manually enter the plan sittings and completed.
                         updated.amount = computeServiceAmount(updatedItem);
                     } else {
                         const price = Number(updated.price || 0);
@@ -366,7 +470,9 @@ export const BillingTab: React.FC<BillingTabProps> = ({
                     catalogId: catalogItem.id,
                     mode: 'catalog' as BillItem['mode'],
                     priceType: catalogItem.priceType,
-                    notes: catalogItem.notes
+                    notes: catalogItem.notes,
+                    sacHsnCode: catalogItem.sacHsnCode,
+                    unit: catalogItem.unit
                 };
                 const withServiceMeta = isProduct
                     ? base
@@ -402,6 +508,8 @@ export const BillingTab: React.FC<BillingTabProps> = ({
             mode: 'catalog',
             priceType: undefined,
             notes: undefined,
+            sacHsnCode: undefined,
+            unit: undefined,
             totalSittings: isProduct ? item.totalSittings : 1,
             completedSittings: isProduct ? item.completedSittings : 1,
             paymentMode: isProduct ? item.paymentMode : 'per_sitting'
@@ -651,6 +759,8 @@ export const BillingTab: React.FC<BillingTabProps> = ({
         );
     };
 
+    const { isIGST } = summaryData;
+
     return (
         <div className="billing-layout">
             <div className="left-panel">
@@ -658,13 +768,49 @@ export const BillingTab: React.FC<BillingTabProps> = ({
                     <div className="section-heading spread" style={{ marginBottom: '1.25rem' }}>
                         <div>
                             <h3 className="flow-heading">1. Customer Details</h3>
-                            <p className="section-caption">Capture who you’re serving today</p>
+                            <p className="section-caption">Capture who you're serving today</p>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                             {returningCustomer && <span className="badge-returning">Returning Customer</span>}
+                            {/* B2C / B2B toggle */}
+                            <div style={{ display: 'inline-flex', border: '1px solid var(--border)', borderRadius: '20px', overflow: 'hidden', backgroundColor: '#f1f5f9' }}>
+                                <button
+                                    type="button"
+                                    style={{
+                                        padding: '0.3rem 0.9rem',
+                                        fontSize: '0.78rem',
+                                        fontWeight: 700,
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        backgroundColor: billingMode === 'b2c' ? 'var(--primary)' : 'transparent',
+                                        color: billingMode === 'b2c' ? '#fff' : 'var(--text-secondary)',
+                                        transition: 'background 0.15s',
+                                    }}
+                                    onClick={() => setBillingMode('b2c')}
+                                >
+                                    B2C
+                                </button>
+                                <button
+                                    type="button"
+                                    style={{
+                                        padding: '0.3rem 0.9rem',
+                                        fontSize: '0.78rem',
+                                        fontWeight: 700,
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        backgroundColor: billingMode === 'b2b' ? 'var(--primary)' : 'transparent',
+                                        color: billingMode === 'b2b' ? '#fff' : 'var(--text-secondary)',
+                                        transition: 'background 0.15s',
+                                    }}
+                                    onClick={() => setBillingMode('b2b')}
+                                >
+                                    B2B
+                                </button>
+                            </div>
                             <div className="bill-id-pill">ID: #{currentBillId}</div>
                         </div>
                     </div>
+
                     <div className="client-grid">
                         <div className="form-group">
                             <label>Full Name</label>
@@ -702,6 +848,57 @@ export const BillingTab: React.FC<BillingTabProps> = ({
                             <label>Address / Session Notes</label>
                             <input type="text" className="form-control" placeholder="123 Street, City..." value={clientAddress} onChange={e => setClientAddress(e.target.value)} />
                         </div>
+
+                        {/* B2C extra field */}
+                        {billingMode === 'b2c' && (
+                            <div className="form-group">
+                                <label>Place of Supply</label>
+                                <StateSelect value={placeOfSupply} onChange={setPlaceOfSupply} />
+                            </div>
+                        )}
+
+                        {/* B2B extra fields */}
+                        {billingMode === 'b2b' && (
+                            <>
+                                <div className="form-group">
+                                    <label>GSTIN</label>
+                                    <input
+                                        type="text"
+                                        className="form-control"
+                                        placeholder="22AAAAA0000A1Z5"
+                                        value={buyerGstin}
+                                        onChange={e => setBuyerGstin(e.target.value.toUpperCase())}
+                                        maxLength={15}
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label>Buyer Legal Name</label>
+                                    <input
+                                        type="text"
+                                        className="form-control"
+                                        placeholder="Company / Firm Name"
+                                        value={buyerLegalName}
+                                        onChange={e => setBuyerLegalName(e.target.value)}
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label>
+                                        Buyer State Code
+                                        {isIGST && (
+                                            <span style={{ marginLeft: '6px', fontSize: '0.72rem', color: '#f59e0b', fontWeight: 700 }}>→ IGST applies</span>
+                                        )}
+                                        {!isIGST && buyerStateCode === SELLER_STATE_CODE && (
+                                            <span style={{ marginLeft: '6px', fontSize: '0.72rem', color: '#10b981', fontWeight: 700 }}>→ CGST + SGST</span>
+                                        )}
+                                    </label>
+                                    <StateSelect value={buyerStateCode} onChange={setBuyerStateCode} />
+                                </div>
+                                <div className="form-group">
+                                    <label>Place of Supply</label>
+                                    <StateSelect value={placeOfSupply} onChange={setPlaceOfSupply} />
+                                </div>
+                            </>
+                        )}
                     </div>
                 </div>
 
@@ -732,10 +929,23 @@ export const BillingTab: React.FC<BillingTabProps> = ({
                             <span>Taxable Amount</span>
                             <strong>{formatCurrency(summaryData.taxable)}</strong>
                         </p>
-                        <p>
-                            <span>GST ({applyGST ? `${gstRate * 2}%` : '0%'})</span>
-                            <strong>{formatCurrency(summaryData.gstTotal)}</strong>
-                        </p>
+                        {isIGST ? (
+                            <p>
+                                <span>IGST ({applyGST ? `${gstRate * 2}%` : '0%'})</span>
+                                <strong>{formatCurrency(summaryData.gstTotal)}</strong>
+                            </p>
+                        ) : (
+                            <>
+                                <p className="muted">
+                                    <span>CGST ({applyGST ? `${gstRate}%` : '0%'})</span>
+                                    <strong>{formatCurrency(applyGST ? summaryData.gstTotal / 2 : 0)}</strong>
+                                </p>
+                                <p className="muted">
+                                    <span>SGST ({applyGST ? `${gstRate}%` : '0%'})</span>
+                                    <strong>{formatCurrency(applyGST ? summaryData.gstTotal / 2 : 0)}</strong>
+                                </p>
+                            </>
+                        )}
                     </div>
 
                     {/* Integrated GST Controls */}
@@ -749,26 +959,41 @@ export const BillingTab: React.FC<BillingTabProps> = ({
                             &nbsp; Apply GST (Products Only)
                         </label>
                         <div className="tax-input-grid">
-                            <div className="tax-field">
-                                <span>CGST</span>
-                                <input
-                                    type="number"
-                                    value={applyGST ? gstRate : ''}
-                                    onChange={(e) => setGstRate(Number(e.target.value))}
-                                    disabled={!applyGST}
-                                />
-                                <span>%</span>
-                            </div>
-                            <div className="tax-field">
-                                <span>SGST</span>
-                                <input
-                                    type="number"
-                                    value={applyGST ? gstRate : ''}
-                                    onChange={(e) => setGstRate(Number(e.target.value))}
-                                    disabled={!applyGST}
-                                />
-                                <span>%</span>
-                            </div>
+                            {isIGST ? (
+                                <div className="tax-field">
+                                    <span>IGST</span>
+                                    <input
+                                        type="number"
+                                        value={applyGST ? gstRate * 2 : ''}
+                                        onChange={(e) => setGstRate(Math.max(0, Number(e.target.value)) / 2)}
+                                        disabled={!applyGST}
+                                    />
+                                    <span>%</span>
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="tax-field">
+                                        <span>CGST</span>
+                                        <input
+                                            type="number"
+                                            value={applyGST ? gstRate : ''}
+                                            onChange={(e) => setGstRate(Number(e.target.value))}
+                                            disabled={!applyGST}
+                                        />
+                                        <span>%</span>
+                                    </div>
+                                    <div className="tax-field">
+                                        <span>SGST</span>
+                                        <input
+                                            type="number"
+                                            value={applyGST ? gstRate : ''}
+                                            onChange={(e) => setGstRate(Number(e.target.value))}
+                                            disabled={!applyGST}
+                                        />
+                                        <span>%</span>
+                                    </div>
+                                </>
+                            )}
                         </div>
                     </div>
 
