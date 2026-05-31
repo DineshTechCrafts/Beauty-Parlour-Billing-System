@@ -12,6 +12,9 @@ export interface BillItem {
   gst?: number;
   discount?: number;
 
+  grossAmount?: number;    // Pre-discount amount (for bill display)
+  discountAmount?: number; // Discount amount applied (for bill display)
+
   /**
    * Catalog enforcement metadata ensures dropdown selections map back to
    * canonical IDs while still supporting legacy manual rows when editing
@@ -36,6 +39,8 @@ export interface BillRow {
     price: string;
     quantity: string;
     amount: string;
+    grossAmount?: string;    // Pre-discount amount stored for display
+    discountAmount?: string; // Discount amount stored for display
     sacHsnCode?: string;
     unit?: string;
 }
@@ -66,6 +71,8 @@ export interface Bill {
   igst?: string;
   reverseCharge?: string;
   invoiceType?: string;
+  serviceDiscount?: string;
+  productDiscount?: string;
 }
 
 export interface Customer {

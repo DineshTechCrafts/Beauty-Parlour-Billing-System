@@ -453,6 +453,13 @@ export default function App() {
     }
     const formattedId = `INV-${year}-${month}-${String(safeId).padStart(3, '0')}`;
 
+    const grossForItem = (vi: BillItem) => {
+      if (vi.type === 'Product' || vi.category === 'Product') {
+        return Number(vi.price || 0) * Number(vi.quantity || 1);
+      }
+      return getBaseService(vi);
+    };
+
     const billData: Bill = {
       id: formattedId,
       date: today.toISOString(),
@@ -475,14 +482,21 @@ export default function App() {
       igst: toMoneyString(igstAmount),
       reverseCharge: 'No',
       invoiceType: 'Regular',
-      items: validItems.map(vi => ({
-        description: vi.description,
-        price: String(vi.price),
-        quantity: String(vi.quantity),
-        amount: String(vi.amount),
-        sacHsnCode: vi.sacHsnCode || '',
-        unit: vi.unit || ''
-      }))
+      serviceDiscount: toMoneyString(serviceTotalDiscount),
+      productDiscount: toMoneyString(productTotalDiscount),
+      items: validItems.map(vi => {
+        const gross = grossForItem(vi);
+        return {
+          description: vi.description,
+          price: String(vi.price),
+          quantity: String(vi.quantity),
+          amount: String(vi.amount),
+          grossAmount: String(Math.round(gross)),
+          discountAmount: String(Math.round(Math.max(0, gross - Number(vi.amount || 0)))),
+          sacHsnCode: vi.sacHsnCode || '',
+          unit: vi.unit || ''
+        };
+      })
     };
 
     try {
@@ -574,7 +588,9 @@ export default function App() {
           category: 'Service',
           price: Number(i.price),
           quantity: Number(i.quantity),
-          amount: Number(i.amount)
+          amount: Number(i.amount),
+          grossAmount: Number(i.grossAmount || i.price),
+          discountAmount: Number(i.discountAmount || 0),
         }))
     : [];
 
@@ -587,7 +603,9 @@ export default function App() {
           category: 'Product',
           price: Number(i.price),
           quantity: Number(i.quantity),
-          amount: Number(i.amount)
+          amount: Number(i.amount),
+          grossAmount: Number(i.grossAmount || Number(i.price) * Number(i.quantity)),
+          discountAmount: Number(i.discountAmount || 0),
         }))
     : [];
 
