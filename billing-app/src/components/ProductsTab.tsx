@@ -325,28 +325,20 @@ export const ProductsTab: React.FC<ProductsTabProps> = ({ inventory }) => {
                                 {/* Top accent */}
                                 <div className="ptab-card-top" style={{ background: meta.bg }}>
                                     <span className="ptab-card-cat" style={{ color: meta.color }}>{cat}</span>
-                                    <span className={`ptab-stock-badge ${stock.className}`}>{stock.label}</span>
                                 </div>
 
                                 {/* Body */}
                                 <div className="ptab-card-body">
                                     <h3 className="ptab-card-title">{item.description}</h3>
-                                    {item.brand && (
-                                        <span className="ptab-card-brand">
-                                            <IconTag /> {item.brand}
-                                        </span>
-                                    )}
-
-                                    {/* Stock bar */}
-                                    <div className="ptab-stock-row">
-                                        <span className="ptab-stock-label">Stock</span>
-                                        <div className="ptab-stock-bar-wrap">
-                                            <div
-                                                className={`ptab-stock-bar ${stock.className}`}
-                                                style={{ width: qty !== undefined ? `${Math.min(100, (qty / 20) * 100)}%` : '0%' }}
-                                            />
-                                        </div>
-                                        <span className="ptab-stock-qty">
+                                    <div className="ptab-card-brand-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                        {item.brand ? (
+                                            <span className="ptab-card-brand">
+                                                <IconTag /> {item.brand}
+                                            </span>
+                                        ) : (
+                                            <span className="ptab-card-brand"></span>
+                                        )}
+                                        <span className="ptab-stock-qty" style={{ minWidth: 'auto', textAlign: 'right' }}>
                                             {qty !== undefined ? qty : '—'} units
                                         </span>
                                     </div>
