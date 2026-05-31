@@ -28,7 +28,11 @@ const safeReadJson = (filePath, fallback) => {
         if (!fs.existsSync(filePath)) {
             return fallback;
         }
-        const raw = fs.readFileSync(filePath, 'utf8');
+        let raw = fs.readFileSync(filePath, 'utf8');
+        // Strip UTF-8 BOM if present (added by some editors/tools like PowerShell)
+        if (raw.charCodeAt(0) === 0xFEFF) {
+            raw = raw.slice(1);
+        }
         if (!raw.trim()) {
             return fallback;
         }
@@ -99,6 +103,7 @@ const normalizeServiceCatalog = (entries) => {
                 description: name,
                 price: basePrice,
                 gst: toNumber(entry['GST %']) || 0,
+                totalSittings: toNumber(entry['Sessions']) || 1,
                 priceType: priceType || undefined,
                 notes: normalizeString(entry['Notes']) || undefined,
                 source: 'catalog-service'

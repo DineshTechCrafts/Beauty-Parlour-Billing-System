@@ -125,7 +125,7 @@ interface ProductFormState {
 interface ServiceFormState {
     id: string; sacHsnCode: string; unit: string; category: string;
     subcategory: string; serviceName: string; basePrice: string;
-    priceType: string; gst: string;
+    priceType: string; gst: string; sessions: string;
 }
 
 export const InventoryTab: React.FC<InventoryTabProps> = ({ inventory, saveInventory }) => {
@@ -143,7 +143,7 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ inventory, saveInven
 
     const [serviceForm, setServiceForm] = useState<ServiceFormState>({
         id: '', sacHsnCode: '', unit: 'NA', category: '', subcategory: '',
-        serviceName: '', basePrice: '', priceType: 'FIXED', gst: '18'
+        serviceName: '', basePrice: '', priceType: 'FIXED', gst: '18', sessions: '1'
     });
 
     const [extraProductCategories, setExtraProductCategories] = useState<string[]>([]);
@@ -198,7 +198,7 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ inventory, saveInven
             setProductForm({ id: newId, sacHsnCode: '', unit: 'NOS', category: '', productName: '', brand: '', mrp: '', sellingPrice: '', gst: '18', stock: '0' });
             setExtraProductCategories([]);
         } else {
-            setServiceForm({ id: newId, sacHsnCode: '', unit: 'NA', category: '', subcategory: '', serviceName: '', basePrice: '', priceType: 'FIXED', gst: '18' });
+            setServiceForm({ id: newId, sacHsnCode: '', unit: 'NA', category: '', subcategory: '', serviceName: '', basePrice: '', priceType: 'FIXED', gst: '18', sessions: '1' });
             setExtraServiceCategories([]);
             setExtraSubcategories([]);
             setExtraPriceTypes([]);
@@ -244,6 +244,7 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ inventory, saveInven
             description: serviceForm.serviceName.trim(),
             price: parseFloat(serviceForm.basePrice) || 0,
             gst: parseFloat(serviceForm.gst) || 0,
+            totalSittings: parseInt(serviceForm.sessions) || 1,
             priceType: serviceForm.priceType.trim() || undefined,
             sacHsnCode: serviceForm.sacHsnCode.trim() || undefined,
             unit: serviceForm.unit || undefined,
@@ -772,6 +773,17 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ inventory, saveInven
                                         value={`₹ ${serviceFinalPrice}`}
                                         readOnly
                                         style={{ background: '#f8fafc', color: 'var(--text-secondary)', cursor: 'default' }}
+                                    />
+                                </FormField>
+
+                                <FormField label="Session Count">
+                                    <input
+                                        type="number"
+                                        className="form-control"
+                                        value={serviceForm.sessions}
+                                        min="1"
+                                        placeholder="1"
+                                        onChange={e => setServiceForm(s => ({ ...s, sessions: e.target.value }))}
                                     />
                                 </FormField>
 
