@@ -315,7 +315,7 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ inventory, saveInven
         return baseFiltered.sort((a, b) => {
             if (a.id === editingId && b.id !== editingId) return -1;
             if (b.id === editingId && a.id !== editingId) return 1;
-            if (!search) return (a.description || '').localeCompare(b.description || '');
+            if (!search) return 0;
             const cleanSearch = search.replace(/\s+/g, '').toLowerCase();
             const aId = a.id || '', bId = b.id || '';
             const aDesc = (a.description || '').toLowerCase(), bDesc = (b.description || '').toLowerCase();
