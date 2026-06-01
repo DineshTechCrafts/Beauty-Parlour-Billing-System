@@ -38,9 +38,10 @@ export const CustomerTab = ({ customers, sessions }: CustomerTabProps) => {
       return customers;
     }
     const q = searchQuery.trim().toLowerCase();
+    const qDigits = q.replace(/\D/g, '');
     return customers.filter((customer) => {
       const nameMatch = customer.name.toLowerCase().includes(q);
-      const phoneMatch = (customer.phone || '').toLowerCase().includes(q);
+      const phoneMatch = qDigits.length > 0 && customer.phone === qDigits;
       return nameMatch || phoneMatch;
     });
   }, [customers, searchQuery]);
@@ -68,7 +69,7 @@ export const CustomerTab = ({ customers, sessions }: CustomerTabProps) => {
     if (!selectedCustomer) {
       return [];
     }
-    const key = (selectedCustomer.name || '').trim();
+    const key = selectedCustomer.key;
     if (!key || !sessions[key]) {
       return [];
     }

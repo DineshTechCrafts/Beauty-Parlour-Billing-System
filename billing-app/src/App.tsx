@@ -27,19 +27,26 @@ const createEmptyServiceItem = (): BillItem => ({
   mode: 'catalog'
 });
 
+const normalizeCustomerKey = (phone: string, name: string) => {
+  const p = phone.replace(/\D/g, '');
+  const n = name.trim().toLowerCase().replace(/\s+/g, ' ');
+  return `${p}::${n}`;
+};
+
 const buildCustomerMap = (bills: Bill[]): Customer[] => {
   const map = new Map<string, Customer>();
 
   bills.forEach((bill) => {
     const trimmedName = (bill.clientName || '').trim() || 'Unknown Client';
-    const trimmedPhone = (bill.clientPhone || '').trim();
-    const key = trimmedPhone || trimmedName || bill.id;
+    const normalizedPhone = (bill.clientPhone || '').replace(/\D/g, '');
+    if (!normalizedPhone) return;
+    const key = normalizeCustomerKey(normalizedPhone, trimmedName);
 
     if (!map.has(key)) {
       map.set(key, {
         key,
         name: trimmedName,
-        phone: trimmedPhone,
+        phone: normalizedPhone,
         bills: [],
         totalSpent: 0,
         visitCount: 0
@@ -335,12 +342,17 @@ export default function App() {
   };
 
   const handleSaveAndPrint = async () => {
+    const normalizedPhone = clientPhone.replace(/\D/g, '');
+    if (normalizedPhone.length !== 10) {
+      showToast('A valid 10-digit phone number is required', 'error');
+      return;
+    }
     if (!clientName.trim()) {
       showToast('Client Name is required', 'error');
       return;
     }
 
-    const clientKey = clientName.trim();
+    const clientKey = normalizeCustomerKey(normalizedPhone, clientName);
     console.log('CURRENT BILL ID:', currentBillId);
 
     for (const item of serviceItems) {

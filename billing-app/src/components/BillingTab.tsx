@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { BillItem, InventoryItem, Customer } from '../types';
 import { Icons } from './Icons';
 
@@ -51,7 +51,8 @@ const StateSelect: React.FC<{
     value: string;
     onChange: (code: string) => void;
     placeholder?: string;
-}> = ({ value, onChange, placeholder = 'Select State...' }) => {
+    disabled?: boolean;
+}> = ({ value, onChange, placeholder = 'Select State...', disabled = false }) => {
     const [open, setOpen] = React.useState(false);
     const [search, setSearch] = React.useState('');
     const wrapperRef = React.useRef<HTMLDivElement>(null);
@@ -80,10 +81,11 @@ const StateSelect: React.FC<{
             <input
                 className="form-control"
                 style={{ fontSize: '0.85rem' }}
-                placeholder={placeholder}
+                placeholder={disabled ? 'Enter phone number first' : placeholder}
                 value={displayValue}
+                disabled={disabled}
                 onChange={e => { setSearch(e.target.value); setOpen(true); }}
-                onFocus={() => { setOpen(true); setSearch(''); }}
+                onFocus={() => { if (!disabled) { setOpen(true); setSearch(''); } }}
             />
             {open && (
                 <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 9999, background: '#fff', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', maxHeight: '200px', overflowY: 'auto', boxShadow: 'var(--shadow-lg)', marginTop: '4px' }}>
@@ -100,6 +102,63 @@ const StateSelect: React.FC<{
                         </div>
                     ))}
                     {filtered.length === 0 && <div style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)' }}>No states found</div>}
+                </div>
+            )}
+        </div>
+    );
+};
+
+const NameCombobox: React.FC<{
+    value: string;
+    onChange: (name: string) => void;
+    suggestions: string[];
+    disabled: boolean;
+}> = ({ value, onChange, suggestions, disabled }) => {
+    const [open, setOpen] = useState(false);
+    const wrapperRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handler = (e: MouseEvent) => {
+            if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+                setOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, []);
+
+    const filtered = suggestions.filter(s => s.toLowerCase().includes(value.toLowerCase()));
+    const showDropdown = open && filtered.length > 0;
+
+    return (
+        <div ref={wrapperRef} style={{ position: 'relative' }}>
+            <input
+                type="text"
+                className="form-control"
+                placeholder={disabled ? 'Enter phone number first' : 'Full Name'}
+                value={value}
+                disabled={disabled}
+                onChange={e => { onChange(e.target.value); setOpen(true); }}
+                onFocus={() => { if (suggestions.length > 0) setOpen(true); }}
+            />
+            {showDropdown && (
+                <div style={{
+                    position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 9999,
+                    background: '#fff', border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius-md)', maxHeight: '200px', overflowY: 'auto',
+                    boxShadow: 'var(--shadow-lg)', marginTop: '4px'
+                }}>
+                    {filtered.map(name => (
+                        <div
+                            key={name}
+                            style={{ padding: '0.65rem 1rem', cursor: 'pointer', borderBottom: '1px solid #f1f5f9', fontSize: '0.9rem' }}
+                            onMouseDown={e => { e.preventDefault(); onChange(name); setOpen(false); }}
+                            onMouseEnter={e => (e.currentTarget.style.background = '#f8fafc')}
+                            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                        >
+                            {name}
+                        </div>
+                    ))}
                 </div>
             )}
         </div>
@@ -317,11 +376,22 @@ export const BillingTab: React.FC<BillingTabProps> = ({
     applyGST, setApplyGST, gstRate, setGstRate,
     inventory, handleProduceBill, currentBillId, sessions, customers
 }) => {
-    const sanitizedPhone = clientPhone.trim();
-    const returningCustomer = useMemo(
-        () => customers.find(c => c.phone?.trim() === sanitizedPhone && sanitizedPhone.length > 0),
+    const sanitizedPhone = clientPhone.replace(/\D/g, '');
+    const normalizedInputName = clientName.trim().toLowerCase().replace(/\s+/g, ' ');
+    const returningCustomer = useMemo(() => {
+        if (sanitizedPhone.length !== 10 || !normalizedInputName) return undefined;
+        const key = `${sanitizedPhone}::${normalizedInputName}`;
+        return customers.find(c => c.key === key);
+    }, [customers, sanitizedPhone, normalizedInputName]);
+
+    const phoneCustomers = useMemo(
+        () => sanitizedPhone.length === 10
+            ? customers.filter(c => c.phone === sanitizedPhone)
+            : [],
         [customers, sanitizedPhone]
     );
+    const nameSuggestions = useMemo(() => phoneCustomers.map(c => c.name), [phoneCustomers]);
+    const isPhoneLocked = sanitizedPhone.length !== 10;
 
     const summaryData = useMemo(() => {
         const getBaseAmount = (item: BillItem, isProduct: boolean) => {
@@ -355,14 +425,7 @@ export const BillingTab: React.FC<BillingTabProps> = ({
 
     const handlePhoneChange = (raw: string) => {
         setClientPhone(raw);
-        const normalized = raw.trim();
-        if (!normalized) {
-            return;
-        }
-        const matched = customers.find(c => c.phone?.trim() === normalized);
-        if (matched) {
-            setClientName(matched.name);
-        }
+        setClientName('');
     };
 
     const addProductItem = () => {
@@ -813,11 +876,7 @@ export const BillingTab: React.FC<BillingTabProps> = ({
 
                     <div className="client-grid">
                         <div className="form-group">
-                            <label>Full Name</label>
-                            <input type="text" className="form-control" placeholder="John Doe" value={clientName} onChange={e => setClientName(e.target.value)} />
-                        </div>
-                        <div className="form-group">
-                            <label>Phone Number</label>
+                            <label>Phone Number <span style={{ color: 'var(--danger, #ef4444)', fontWeight: 700 }}>*</span></label>
                             <div style={{ display: 'flex' }}>
                                 <span style={{
                                     display: 'inline-flex',
@@ -845,15 +904,31 @@ export const BillingTab: React.FC<BillingTabProps> = ({
                             </div>
                         </div>
                         <div className="form-group">
+                            <label>Full Name</label>
+                            <NameCombobox
+                                value={clientName}
+                                onChange={setClientName}
+                                suggestions={nameSuggestions}
+                                disabled={isPhoneLocked}
+                            />
+                        </div>
+                        <div className="form-group">
                             <label>Address / Session Notes</label>
-                            <input type="text" className="form-control" placeholder="123 Street, City..." value={clientAddress} onChange={e => setClientAddress(e.target.value)} />
+                            <input
+                                type="text"
+                                className="form-control"
+                                placeholder={isPhoneLocked ? 'Enter phone number first' : '123 Street, City...'}
+                                value={clientAddress}
+                                disabled={isPhoneLocked}
+                                onChange={e => setClientAddress(e.target.value)}
+                            />
                         </div>
 
                         {/* B2C extra field */}
                         {billingMode === 'b2c' && (
                             <div className="form-group">
                                 <label>Place of Supply</label>
-                                <StateSelect value={placeOfSupply} onChange={setPlaceOfSupply} />
+                                <StateSelect value={placeOfSupply} onChange={isPhoneLocked ? () => {} : setPlaceOfSupply} disabled={isPhoneLocked} />
                             </div>
                         )}
 
@@ -865,8 +940,9 @@ export const BillingTab: React.FC<BillingTabProps> = ({
                                     <input
                                         type="text"
                                         className="form-control"
-                                        placeholder="22AAAAA0000A1Z5"
+                                        placeholder={isPhoneLocked ? 'Enter phone number first' : '22AAAAA0000A1Z5'}
                                         value={buyerGstin}
+                                        disabled={isPhoneLocked}
                                         onChange={e => setBuyerGstin(e.target.value.toUpperCase())}
                                         maxLength={15}
                                     />
@@ -876,8 +952,9 @@ export const BillingTab: React.FC<BillingTabProps> = ({
                                     <input
                                         type="text"
                                         className="form-control"
-                                        placeholder="Company / Firm Name"
+                                        placeholder={isPhoneLocked ? 'Enter phone number first' : 'Company / Firm Name'}
                                         value={buyerLegalName}
+                                        disabled={isPhoneLocked}
                                         onChange={e => setBuyerLegalName(e.target.value)}
                                     />
                                 </div>
@@ -891,19 +968,21 @@ export const BillingTab: React.FC<BillingTabProps> = ({
                                             <span style={{ marginLeft: '6px', fontSize: '0.72rem', color: '#10b981', fontWeight: 700 }}>→ CGST + SGST</span>
                                         )}
                                     </label>
-                                    <StateSelect value={buyerStateCode} onChange={setBuyerStateCode} />
+                                    <StateSelect value={buyerStateCode} onChange={isPhoneLocked ? () => {} : setBuyerStateCode} disabled={isPhoneLocked} />
                                 </div>
                                 <div className="form-group">
                                     <label>Place of Supply</label>
-                                    <StateSelect value={placeOfSupply} onChange={setPlaceOfSupply} />
+                                    <StateSelect value={placeOfSupply} onChange={isPhoneLocked ? () => {} : setPlaceOfSupply} disabled={isPhoneLocked} />
                                 </div>
                             </>
                         )}
                     </div>
                 </div>
 
-                {renderItemSection(serviceItems, false, 'Services', '2. Services')}
-                {renderItemSection(productItems, true, 'Products', '3. Products')}
+                <div style={{ opacity: isPhoneLocked ? 0.4 : 1, pointerEvents: isPhoneLocked ? 'none' : 'auto' }}>
+                    {renderItemSection(serviceItems, false, 'Services', '2. Services')}
+                    {renderItemSection(productItems, true, 'Products', '3. Products')}
+                </div>
             </div>
 
             <div className="right-panel">
@@ -1002,7 +1081,12 @@ export const BillingTab: React.FC<BillingTabProps> = ({
                         <span className="total">{formatCurrency(summaryData.grandTotal)}</span>
                     </div>
 
-                    <button className="btn btn-primary btn-checkout" onClick={handleProduceBill}>
+                    <button
+                        className="btn btn-primary btn-checkout"
+                        onClick={handleProduceBill}
+                        disabled={isPhoneLocked}
+                        style={{ opacity: isPhoneLocked ? 0.5 : 1, cursor: isPhoneLocked ? 'not-allowed' : 'pointer' }}
+                    >
                         <Icons.Save /> Generate Invoice
                     </button>
                 </div>
