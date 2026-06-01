@@ -1506,12 +1506,15 @@
    border: 1px solid #000;
    padding: 4px 6px;
    font-size: 11px;
+   color: #000;
    word-wrap: break-word;
  }
 
  .pt-main-table thead tr th {
    background: #fff;
+   font-size: 9.5px;
    font-weight: bold;
+   color: #000;
    text-align: center;
    text-transform: uppercase;
    border-bottom: 1.5px solid #000;

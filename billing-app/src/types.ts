@@ -41,6 +41,7 @@ export interface BillRow {
     amount: string;
     grossAmount?: string;    // Pre-discount amount stored for display
     discountAmount?: string; // Discount amount stored for display
+    totalSittings?: string;  // Total sessions for a service (used to compute per-session price)
     sacHsnCode?: string;
     unit?: string;
 }

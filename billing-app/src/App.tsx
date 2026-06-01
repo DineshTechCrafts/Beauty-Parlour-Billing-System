@@ -486,6 +486,7 @@ export default function App() {
       productDiscount: toMoneyString(productTotalDiscount),
       items: validItems.map(vi => {
         const gross = grossForItem(vi);
+        const isProduct = vi.type === 'Product' || vi.category === 'Product';
         return {
           description: vi.description,
           price: String(vi.price),
@@ -493,6 +494,7 @@ export default function App() {
           amount: String(vi.amount),
           grossAmount: String(Math.round(gross)),
           discountAmount: String(Math.round(Math.max(0, gross - Number(vi.amount || 0)))),
+          totalSittings: isProduct ? undefined : String(Math.max(1, Number(vi.totalSittings || 1))),
           sacHsnCode: vi.sacHsnCode || '',
           unit: vi.unit || ''
         };
@@ -591,6 +593,7 @@ export default function App() {
           amount: Number(i.amount),
           grossAmount: Number(i.grossAmount || i.price),
           discountAmount: Number(i.discountAmount || 0),
+          totalSittings: Number(i.totalSittings || 1),
         }))
     : [];
 

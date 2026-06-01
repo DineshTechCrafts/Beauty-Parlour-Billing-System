@@ -73,7 +73,7 @@ export const PrintTemplate = React.forwardRef<HTMLDivElement, PrintTemplateProps
     const {
         clientName, clientPhone, clientAddress, currentBillId,
         serviceItems, productItems,
-        grandTotal, billDate, amountPaid, amountPaidDate,
+        billDate, amountPaid, amountPaidDate,
         oldBalanceBillRef, oldBalanceAmount,
     } = props;
 
@@ -101,7 +101,6 @@ export const PrintTemplate = React.forwardRef<HTMLDivElement, PrintTemplateProps
     const grandTotalDisplay = serviceNetSubtotal + totalB;
 
     const displayBillDate  = formatDisplayDate(billDate);
-    const paymentDate      = formatDisplayDate(amountPaidDate || billDate);
 
     const safePaid    = typeof amountPaid === 'number'
         ? Math.min(grandTotalDisplay, fmt(amountPaid))
@@ -167,14 +166,16 @@ export const PrintTemplate = React.forwardRef<HTMLDivElement, PrintTemplateProps
                 <tbody>
                     {validServices.length > 0
                         ? validServices.map((item, idx) => {
-                            const gross = Number(item.grossAmount ?? item.amount ?? 0);
-                            const disc  = Number(item.discountAmount ?? 0);
-                            const net   = Number(item.amount ?? 0);
+                            const gross          = Number(item.grossAmount ?? item.amount ?? 0);
+                            const disc           = Number(item.discountAmount ?? 0);
+                            const net            = Number(item.amount ?? 0);
+                            const sessions       = Math.max(1, Number(item.totalSittings || 1));
+                            const pricePerSession = Math.round(Number(item.price) / sessions);
                             return (
                                 <tr key={`svc-${idx}`}>
                                     <td className="pt-center">{idx + 1}</td>
                                     <td>{item.description}</td>
-                                    <td className="pt-right">{fmt(item.price)}</td>
+                                    <td className="pt-right">{pricePerSession}</td>
                                     <td className="pt-right">{fmt(gross)}</td>
                                     <td className="pt-right">{fmt(disc)}</td>
                                     <td className="pt-right">{fmt(net)}</td>
