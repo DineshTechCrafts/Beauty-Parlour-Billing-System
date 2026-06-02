@@ -57,7 +57,7 @@ function initSchema(db) {
             sac_hsn_code      TEXT,
             unit              TEXT,
             status            TEXT NOT NULL DEFAULT 'PENDING',
-            invoiced_in_seq   INTEGER REFERENCES tax_invoices(gst_seq)
+            invoiced_in_seq   INTEGER
         );
 
         CREATE INDEX IF NOT EXISTS idx_receipt_items_customer_status
@@ -466,6 +466,19 @@ function processPayment(db, opts) {
 
 // ─── Customer operations ──────────────────────────────────────────────────────
 
+function findOrCreateCustomerByPhone(db, { phone, name, address, stateCode = '33' }) {
+    if (!phone) throw new Error('Phone required for customer identification');
+    const existing = db.prepare('SELECT * FROM customers WHERE phone = ?').get(phone);
+    if (existing) {
+        if (existing.name !== name) {
+            db.prepare('UPDATE customers SET name = ?, address = ? WHERE customer_id = ?')
+              .run(name, address || existing.address, existing.customer_id);
+        }
+        return existing.customer_id;
+    }
+    return createCustomer(db, { name, phone, address, state_code: stateCode });
+}
+
 function createCustomer(db, data) {
     const id = data.customer_id || nextCustomerId(db);
     db.prepare(`
@@ -699,6 +712,7 @@ module.exports = {
     closeDb,
 
     // Customer
+    findOrCreateCustomer: (dbPath, data) => { const db = openDb(dbPath); return findOrCreateCustomerByPhone(db, data); },
     createCustomer: (dbPath, data) => { const db = openDb(dbPath); return createCustomer(db, data); },
     getCustomer: (dbPath, id) => { const db = openDb(dbPath); return getCustomer(db, id); },
     listCustomers: (dbPath) => { const db = openDb(dbPath); return listCustomers(db); },

@@ -253,6 +253,9 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+    // Eagerly open the SQLite DB so billing.db + schema exist from first launch
+    try { billingDb.openDb(getDbPath()); } catch (e) { console.error('DB init failed:', e); }
+
     createWindow();
 
     app.on('activate', () => {
@@ -551,6 +554,13 @@ ipcMain.handle('db:get-customer', async (_e, customerId) => {
     try {
         const data = billingDb.getCustomer(getDbPath(), customerId);
         return { success: true, data };
+    } catch (e) { return { success: false, error: e.message }; }
+});
+
+ipcMain.handle('db:find-or-create-customer', async (_e, data) => {
+    try {
+        const id = billingDb.findOrCreateCustomer(getDbPath(), data);
+        return { success: true, data: id };
     } catch (e) { return { success: false, error: e.message }; }
 });
 

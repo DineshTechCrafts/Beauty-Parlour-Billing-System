@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
     // SQLite DB handlers
     db: {
+        findOrCreateCustomer: (data) => ipcRenderer.invoke('db:find-or-create-customer', data),
         listCustomers: () => ipcRenderer.invoke('db:list-customers'),
         getCustomer: (id) => ipcRenderer.invoke('db:get-customer', id),
         createCustomer: (data) => ipcRenderer.invoke('db:create-customer', data),

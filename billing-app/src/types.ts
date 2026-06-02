@@ -259,6 +259,7 @@ declare global {
       saveSessions: (data: any) => Promise<any>;
 
       db: {
+        findOrCreateCustomer: (data: { phone: string; name: string; address?: string; stateCode?: string }) => Promise<IpcResponse<string>>;
         listCustomers: () => Promise<IpcResponse<DbCustomer[]>>;
         getCustomer: (id: string) => Promise<IpcResponse<DbCustomer>>;
         createCustomer: (data: Partial<DbCustomer>) => Promise<IpcResponse<string>>;

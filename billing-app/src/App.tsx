@@ -9,10 +9,9 @@ import { BillHistoryTab } from './components/BillHistoryTab';
 import { CustomerTab } from './components/CustomerTab';
 import { Toast } from './components/Toast';
 import { PrintTemplate } from './components/PrintTemplate';
-import { ReceiptTab } from './components/ReceiptTab';
 import { CustomerLedgerTab } from './components/CustomerLedgerTab';
 import { GstFilingTab } from './components/GstFilingTab';
-import { InventoryItem, Bill, BillItem, BillRow, Customer, ProcessPaymentResult } from './types';
+import { InventoryItem, Bill, BillItem, BillRow, Customer } from './types';
 import { INITIAL_CATALOG } from './constants';
 
 const createEmptyServiceItem = (): BillItem => ({
@@ -528,6 +527,52 @@ export default function App() {
               await window.electronAPI.saveSessions(nextSessions);
             }
           }
+
+          // ── SQLite credit system (non-blocking) ──────────────────────────
+          if (window.electronAPI?.db) {
+            const receiptDateStr = today.toISOString().slice(0, 10);
+            window.electronAPI.db
+              .findOrCreateCustomer({
+                phone: normalizedPhone,
+                name: clientName.trim(),
+                address: clientAddress.trim() || '',
+                stateCode: placeOfSupply || '33',
+              })
+              .then(custResp => {
+                if (!custResp.success) { console.error('Credit system: customer lookup failed', (custResp as any).error); return; }
+                const dbItems = validItems.map(vi => {
+                  const isProduct = vi.type === 'Product' || vi.category === 'Product';
+                  const gross = grossForItem(vi);
+                  const discVal = Math.round(Math.max(0, gross - Number(vi.amount)) * 100) / 100;
+                  const itemGstRate =
+                    vi.gst !== undefined && vi.gst > 0
+                      ? vi.gst
+                      : applyGST
+                      ? gstRate * 2
+                      : 0;
+                  return {
+                    description: vi.description,
+                    type: (isProduct ? 'PRODUCT' : 'SERVICE') as 'PRODUCT' | 'SERVICE',
+                    price: Math.round(gross * 100) / 100,
+                    quantity: 1,
+                    discount: discVal,
+                    gstRate: itemGstRate,
+                    sacHsnCode: vi.sacHsnCode || '',
+                    unit: vi.unit || '',
+                  };
+                });
+                return window.electronAPI.db.processPayment({
+                  customerId: custResp.data,
+                  receiptDate: receiptDateStr,
+                  payment: grandTotalVal,
+                  items: dbItems,
+                  billReceiptFirst: true,
+                  invoiceDate: receiptDateStr,
+                  sellerStateCode: placeOfSupply || '33',
+                });
+              })
+              .catch(err => console.error('Credit system error:', err));
+          }
         } else {
           showToast('Failed to save bill: ' + response.error, 'error');
           return;
@@ -634,24 +679,22 @@ export default function App() {
         <div className="tabs-container">
           <header className="header no-print">
             <h1>
-              {activeTab === 'receipt' && 'New Receipt'}
-              {activeTab === 'ledger' && 'Customer Ledger'}
-              {activeTab === 'gst' && 'GST Filing Register'}
-              {activeTab === 'billing' && 'Legacy Billing'}
+              {activeTab === 'billing' && 'Premium Billing System'}
               {activeTab === 'catalog' && 'Price Catalog Definitions'}
               {activeTab === 'inventory' && 'Inventory Records'}
               {activeTab === 'history' && 'Invoice Archive'}
               {activeTab === 'customers' && 'Customer Intelligence'}
+              {activeTab === 'ledger' && 'Customer Ledger'}
+              {activeTab === 'gst' && 'GST Filing Register'}
             </h1>
             <p>
-              {activeTab === 'receipt' && 'Add items, process payments, and generate GST invoices on cash receipt.'}
-              {activeTab === 'ledger' && 'View customer outstanding, pending items, advance credit, and transaction ledger.'}
-              {activeTab === 'gst' && 'Strictly sequential GST invoice register for filing. Export CSV, reconcile, and backup.'}
               {activeTab === 'billing' && 'Generate professional clinic invoices and manage one-time transactions.'}
               {activeTab === 'catalog' && 'View current service menu and standard pricing definitions.'}
               {activeTab === 'inventory' && 'Maintain retail stock levels and category organization.'}
               {activeTab === 'history' && 'Access past records and track business performance.'}
               {activeTab === 'customers' && 'Search loyalty trends, review visit history, and audit session progress.'}
+              {activeTab === 'ledger' && 'View customer outstanding, pending items, advance credit, and transaction ledger.'}
+              {activeTab === 'gst' && 'Strictly sequential GST invoice register for filing. Export CSV, reconcile, and backup.'}
             </p>
           </header>
 
@@ -713,15 +756,6 @@ export default function App() {
             </div>
           )}
 
-          {activeTab === 'receipt' && (
-            <ReceiptTab
-              inventory={inventory}
-              showToast={showToast}
-              onSuccess={(_result: ProcessPaymentResult, _customerId: string) => {
-                // optionally auto-navigate to ledger
-              }}
-            />
-          )}
           {activeTab === 'ledger' && <CustomerLedgerTab />}
           {activeTab === 'gst' && <GstFilingTab />}
 

@@ -13,16 +13,21 @@ export function CustomerLedgerTab() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    if (!window.electronAPI?.db) return;
     loadCustomers();
   }, []);
 
   useEffect(() => {
-    if (selectedId) loadCustomerData(selectedId);
+    if (selectedId && window.electronAPI?.db) loadCustomerData(selectedId);
   }, [selectedId]);
 
   async function loadCustomers() {
-    const resp = await window.electronAPI.db.listCustomers();
-    if (resp.success) setCustomers(resp.data);
+    try {
+      const resp = await window.electronAPI.db.listCustomers();
+      if (resp.success) setCustomers(resp.data);
+    } catch (e) {
+      console.error('CustomerLedger loadCustomers:', e);
+    }
   }
 
   async function loadCustomerData(id: string) {
