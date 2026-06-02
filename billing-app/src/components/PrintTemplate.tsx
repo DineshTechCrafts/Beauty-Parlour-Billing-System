@@ -73,7 +73,7 @@ export const PrintTemplate = React.forwardRef<HTMLDivElement, PrintTemplateProps
     const {
         clientName, clientPhone, clientAddress, currentBillId,
         serviceItems, productItems,
-        billDate, amountPaid, amountPaidDate,
+        billDate, amountPaid,
         oldBalanceBillRef, oldBalanceAmount,
     } = props;
 

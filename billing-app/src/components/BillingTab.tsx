@@ -45,8 +45,6 @@ const INDIA_STATES = [
     { code: '99', name: 'Centre Jurisdiction' },
 ];
 
-export const SELLER_STATE_CODE = '33';
-
 const StateSelect: React.FC<{
     value: string;
     onChange: (code: string) => void;
@@ -173,16 +171,8 @@ interface BillingTabProps {
     clientAddress: string;
     setClientAddress: (v: string) => void;
 
-    billingMode: 'b2c' | 'b2b';
-    setBillingMode: (v: 'b2c' | 'b2b') => void;
     placeOfSupply: string;
     setPlaceOfSupply: (v: string) => void;
-    buyerGstin: string;
-    setBuyerGstin: (v: string) => void;
-    buyerLegalName: string;
-    setBuyerLegalName: (v: string) => void;
-    buyerStateCode: string;
-    setBuyerStateCode: (v: string) => void;
 
     productItems: BillItem[];
     setProductItems: React.Dispatch<React.SetStateAction<BillItem[]>>;
@@ -370,8 +360,7 @@ const ComboSelect: React.FC<{
 
 export const BillingTab: React.FC<BillingTabProps> = ({
     clientName, setClientName, clientPhone, setClientPhone, clientAddress, setClientAddress,
-    billingMode, setBillingMode, placeOfSupply, setPlaceOfSupply,
-    buyerGstin, setBuyerGstin, buyerLegalName, setBuyerLegalName, buyerStateCode, setBuyerStateCode,
+    placeOfSupply, setPlaceOfSupply,
     productItems, setProductItems, serviceItems, setServiceItems,
     applyGST, setApplyGST, gstRate, setGstRate,
     inventory, handleProduceBill, currentBillId, sessions, customers
@@ -417,11 +406,10 @@ export const BillingTab: React.FC<BillingTabProps> = ({
 
         const taxable = Math.max(0, serviceSubTotal + productSubTotal);
 
-        const isIGST = billingMode === 'b2b' && buyerStateCode !== SELLER_STATE_CODE;
         const gstTotal = applyGST ? taxable * (gstRate * 2 / 100) : 0;
         const grandTotal = taxable + gstTotal;
-        return { servicePreDiscount, productPreDiscount, serviceSubTotal, productSubTotal, discount, taxable, gstTotal, grandTotal, isIGST };
-    }, [serviceItems, productItems, applyGST, gstRate, billingMode, buyerStateCode]);
+        return { servicePreDiscount, productPreDiscount, serviceSubTotal, productSubTotal, discount, taxable, gstTotal, grandTotal };
+    }, [serviceItems, productItems, applyGST, gstRate]);
 
     const handlePhoneChange = (raw: string) => {
         setClientPhone(raw);
@@ -822,8 +810,6 @@ export const BillingTab: React.FC<BillingTabProps> = ({
         );
     };
 
-    const { isIGST } = summaryData;
-
     return (
         <div className="billing-layout">
             <div className="left-panel">
@@ -835,41 +821,6 @@ export const BillingTab: React.FC<BillingTabProps> = ({
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                             {returningCustomer && <span className="badge-returning">Returning Customer</span>}
-                            {/* B2C / B2B toggle */}
-                            <div style={{ display: 'inline-flex', border: '1px solid var(--border)', borderRadius: '20px', overflow: 'hidden', backgroundColor: '#f1f5f9' }}>
-                                <button
-                                    type="button"
-                                    style={{
-                                        padding: '0.3rem 0.9rem',
-                                        fontSize: '0.78rem',
-                                        fontWeight: 700,
-                                        border: 'none',
-                                        cursor: 'pointer',
-                                        backgroundColor: billingMode === 'b2c' ? 'var(--primary)' : 'transparent',
-                                        color: billingMode === 'b2c' ? '#fff' : 'var(--text-secondary)',
-                                        transition: 'background 0.15s',
-                                    }}
-                                    onClick={() => setBillingMode('b2c')}
-                                >
-                                    B2C
-                                </button>
-                                <button
-                                    type="button"
-                                    style={{
-                                        padding: '0.3rem 0.9rem',
-                                        fontSize: '0.78rem',
-                                        fontWeight: 700,
-                                        border: 'none',
-                                        cursor: 'pointer',
-                                        backgroundColor: billingMode === 'b2b' ? 'var(--primary)' : 'transparent',
-                                        color: billingMode === 'b2b' ? '#fff' : 'var(--text-secondary)',
-                                        transition: 'background 0.15s',
-                                    }}
-                                    onClick={() => setBillingMode('b2b')}
-                                >
-                                    B2B
-                                </button>
-                            </div>
                             <div className="bill-id-pill">ID: #{currentBillId}</div>
                         </div>
                     </div>
@@ -924,58 +875,10 @@ export const BillingTab: React.FC<BillingTabProps> = ({
                             />
                         </div>
 
-                        {/* B2C extra field */}
-                        {billingMode === 'b2c' && (
-                            <div className="form-group">
-                                <label>Place of Supply</label>
-                                <StateSelect value={placeOfSupply} onChange={isPhoneLocked ? () => {} : setPlaceOfSupply} disabled={isPhoneLocked} />
-                            </div>
-                        )}
-
-                        {/* B2B extra fields */}
-                        {billingMode === 'b2b' && (
-                            <>
-                                <div className="form-group">
-                                    <label>GSTIN</label>
-                                    <input
-                                        type="text"
-                                        className="form-control"
-                                        placeholder={isPhoneLocked ? 'Enter phone number first' : '22AAAAA0000A1Z5'}
-                                        value={buyerGstin}
-                                        disabled={isPhoneLocked}
-                                        onChange={e => setBuyerGstin(e.target.value.toUpperCase())}
-                                        maxLength={15}
-                                    />
-                                </div>
-                                <div className="form-group">
-                                    <label>Buyer Legal Name</label>
-                                    <input
-                                        type="text"
-                                        className="form-control"
-                                        placeholder={isPhoneLocked ? 'Enter phone number first' : 'Company / Firm Name'}
-                                        value={buyerLegalName}
-                                        disabled={isPhoneLocked}
-                                        onChange={e => setBuyerLegalName(e.target.value)}
-                                    />
-                                </div>
-                                <div className="form-group">
-                                    <label>
-                                        Buyer State Code
-                                        {isIGST && (
-                                            <span style={{ marginLeft: '6px', fontSize: '0.72rem', color: '#f59e0b', fontWeight: 700 }}>→ IGST applies</span>
-                                        )}
-                                        {!isIGST && buyerStateCode === SELLER_STATE_CODE && (
-                                            <span style={{ marginLeft: '6px', fontSize: '0.72rem', color: '#10b981', fontWeight: 700 }}>→ CGST + SGST</span>
-                                        )}
-                                    </label>
-                                    <StateSelect value={buyerStateCode} onChange={isPhoneLocked ? () => {} : setBuyerStateCode} disabled={isPhoneLocked} />
-                                </div>
-                                <div className="form-group">
-                                    <label>Place of Supply</label>
-                                    <StateSelect value={placeOfSupply} onChange={isPhoneLocked ? () => {} : setPlaceOfSupply} disabled={isPhoneLocked} />
-                                </div>
-                            </>
-                        )}
+                        <div className="form-group">
+                            <label>Place of Supply</label>
+                            <StateSelect value={placeOfSupply} onChange={isPhoneLocked ? () => {} : setPlaceOfSupply} disabled={isPhoneLocked} />
+                        </div>
                     </div>
                 </div>
 
@@ -1008,23 +911,14 @@ export const BillingTab: React.FC<BillingTabProps> = ({
                             <span>Taxable Amount</span>
                             <strong>{formatCurrency(summaryData.taxable)}</strong>
                         </p>
-                        {isIGST ? (
-                            <p>
-                                <span>IGST ({applyGST ? `${gstRate * 2}%` : '0%'})</span>
-                                <strong>{formatCurrency(summaryData.gstTotal)}</strong>
-                            </p>
-                        ) : (
-                            <>
-                                <p className="muted">
-                                    <span>CGST ({applyGST ? `${gstRate}%` : '0%'})</span>
-                                    <strong>{formatCurrency(applyGST ? summaryData.gstTotal / 2 : 0)}</strong>
-                                </p>
-                                <p className="muted">
-                                    <span>SGST ({applyGST ? `${gstRate}%` : '0%'})</span>
-                                    <strong>{formatCurrency(applyGST ? summaryData.gstTotal / 2 : 0)}</strong>
-                                </p>
-                            </>
-                        )}
+                        <p className="muted">
+                            <span>CGST ({applyGST ? `${gstRate}%` : '0%'})</span>
+                            <strong>{formatCurrency(applyGST ? summaryData.gstTotal / 2 : 0)}</strong>
+                        </p>
+                        <p className="muted">
+                            <span>SGST ({applyGST ? `${gstRate}%` : '0%'})</span>
+                            <strong>{formatCurrency(applyGST ? summaryData.gstTotal / 2 : 0)}</strong>
+                        </p>
                     </div>
 
                     {/* Integrated GST Controls */}
@@ -1038,41 +932,26 @@ export const BillingTab: React.FC<BillingTabProps> = ({
                             &nbsp; Apply GST (Products Only)
                         </label>
                         <div className="tax-input-grid">
-                            {isIGST ? (
-                                <div className="tax-field">
-                                    <span>IGST</span>
-                                    <input
-                                        type="number"
-                                        value={applyGST ? gstRate * 2 : ''}
-                                        onChange={(e) => setGstRate(Math.max(0, Number(e.target.value)) / 2)}
-                                        disabled={!applyGST}
-                                    />
-                                    <span>%</span>
-                                </div>
-                            ) : (
-                                <>
-                                    <div className="tax-field">
-                                        <span>CGST</span>
-                                        <input
-                                            type="number"
-                                            value={applyGST ? gstRate : ''}
-                                            onChange={(e) => setGstRate(Number(e.target.value))}
-                                            disabled={!applyGST}
-                                        />
-                                        <span>%</span>
-                                    </div>
-                                    <div className="tax-field">
-                                        <span>SGST</span>
-                                        <input
-                                            type="number"
-                                            value={applyGST ? gstRate : ''}
-                                            onChange={(e) => setGstRate(Number(e.target.value))}
-                                            disabled={!applyGST}
-                                        />
-                                        <span>%</span>
-                                    </div>
-                                </>
-                            )}
+                            <div className="tax-field">
+                                <span>CGST</span>
+                                <input
+                                    type="number"
+                                    value={applyGST ? gstRate : ''}
+                                    onChange={(e) => setGstRate(Number(e.target.value))}
+                                    disabled={!applyGST}
+                                />
+                                <span>%</span>
+                            </div>
+                            <div className="tax-field">
+                                <span>SGST</span>
+                                <input
+                                    type="number"
+                                    value={applyGST ? gstRate : ''}
+                                    onChange={(e) => setGstRate(Number(e.target.value))}
+                                    disabled={!applyGST}
+                                />
+                                <span>%</span>
+                            </div>
                         </div>
                     </div>
 

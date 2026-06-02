@@ -64,14 +64,7 @@ export interface Bill {
     total: string;
     items: BillRow[];
 
-  billingMode?: 'b2c' | 'b2b';
   placeOfSupply?: string;
-  buyerGstin?: string;
-  buyerLegalName?: string;
-  buyerStateCode?: string;
-  igst?: string;
-  reverseCharge?: string;
-  invoiceType?: string;
   serviceDiscount?: string;
   productDiscount?: string;
 }
