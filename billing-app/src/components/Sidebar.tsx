@@ -9,7 +9,10 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
     const menuItems = [
-        { id: 'billing', label: 'Produce Billing', icon: <Icons.FileText /> },
+        { id: 'receipt', label: 'New Receipt', icon: <Icons.FileText /> },
+        { id: 'ledger', label: 'Customer Ledger', icon: <Icons.Users /> },
+        { id: 'gst', label: 'GST Filing', icon: <Icons.Tag /> },
+        { id: 'billing', label: 'Legacy Billing', icon: <Icons.FileText /> },
         { id: 'catalog', label: 'Services Menu', icon: <Icons.Tag /> },
         { id: 'inventory', label: 'Catalog Records', icon: <Icons.Package /> },
         { id: 'history', label: 'Invoice Archive', icon: <Icons.History /> },

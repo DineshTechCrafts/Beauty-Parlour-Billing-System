@@ -111,6 +111,141 @@ export interface InventoryItem {
     mrp?: number;
 }
 
+// ─── SQLite DB types ─────────────────────────────────────────────────────────
+
+export interface DbCustomer {
+  customer_id: string;
+  name: string;
+  phone: string | null;
+  gstin: string | null;
+  address: string | null;
+  state_code: string;
+}
+
+export type ReceiptMode = 'ITEMS_ONLY' | 'PAYMENT_ONLY' | 'ITEMS_PAYMENT';
+
+export interface DbReceipt {
+  receipt_id: string;
+  customer_id: string;
+  receipt_date: string;
+  payment: number | null;
+  mode: ReceiptMode;
+  bill_receipt_first: number;
+  created_at: string;
+}
+
+export interface DbReceiptItem {
+  item_id: string;
+  receipt_id: string;
+  customer_id: string;
+  item_description: string;
+  type: 'PRODUCT' | 'SERVICE';
+  price: number;
+  quantity: number;
+  amount: number;
+  discount: number;
+  gst_rate: number;
+  taxed_total: number;
+  sac_hsn_code: string | null;
+  unit: string | null;
+  status: 'PENDING' | 'INVOICED';
+  invoiced_in_seq: number | null;
+  receipt_date?: string;
+}
+
+export interface NewReceiptItem {
+  description: string;
+  type: 'PRODUCT' | 'SERVICE';
+  price: number;
+  quantity: number;
+  discount?: number;
+  gstRate: number;
+  sacHsnCode?: string;
+  unit?: string;
+}
+
+export interface ProcessPaymentOpts {
+  customerId: string;
+  receiptDate: string;
+  payment?: number | null;
+  items?: NewReceiptItem[];
+  billReceiptFirst?: boolean;
+  invoiceDate?: string;
+  sellerStateCode?: string;
+}
+
+export interface ProcessPaymentResult {
+  receiptId: string;
+  mode: ReceiptMode;
+  invoiceSeq: number | null;
+  covered: string[];
+}
+
+export interface DbTaxInvoice {
+  row_id: number;
+  gst_seq: number;
+  receipt_id: string;
+  date: string;
+  client_name: string;
+  client_phone: string;
+  client_address: string;
+  sub_total: number;
+  discount: number;
+  cgst: number;
+  sgst: number;
+  igst: number;
+  gst_total: number;
+  taxable_amount: number;
+  service_total: number;
+  product_total: number;
+  total: number;
+  gst_rate: number;
+  billing_mode: string;
+  place_of_supply: string;
+  buyer_gstin: string;
+  buyer_legal_name: string;
+  buyer_state_code: string;
+  reverse_charge: string;
+  invoice_type: string;
+  item_description: string;
+  price: number;
+  quantity: number;
+  amount: number;
+  sac_hsn_code: string | null;
+  unit: string | null;
+  source_receipt_id: string;
+  source_item_id: string;
+}
+
+export interface DbLedgerEntry {
+  txn_id: number;
+  customer_id: string;
+  type: 'PAYMENT' | 'INVOICE' | 'ADVANCE_CREDIT' | 'CREDIT_USED';
+  amount: number;
+  ref_id: string | null;
+  date: string;
+}
+
+export interface GstFilingRow {
+  gst_seq: number;
+  date: string;
+  client_name: string;
+  receipt_id: string;
+  taxable_amount: number;
+  gst_total: number;
+  total: number;
+  cgst: number;
+  sgst: number;
+  igst: number;
+  billing_mode: string;
+  invoice_type: string;
+  buyer_gstin: string;
+}
+
+// ─── IPC response wrapper ────────────────────────────────────────────────────
+
+export type IpcResponse<T> = { success: true; data: T } | { success: false; error: string };
+
 declare global {
   interface Window {
     electronAPI: {
@@ -122,6 +257,29 @@ declare global {
       getNextBillId: () => Promise<any>;
       getSessions: () => Promise<any>;
       saveSessions: (data: any) => Promise<any>;
+
+      db: {
+        listCustomers: () => Promise<IpcResponse<DbCustomer[]>>;
+        getCustomer: (id: string) => Promise<IpcResponse<DbCustomer>>;
+        createCustomer: (data: Partial<DbCustomer>) => Promise<IpcResponse<string>>;
+        updateCustomer: (id: string, data: Partial<DbCustomer>) => Promise<IpcResponse<void>>;
+
+        processPayment: (opts: ProcessPaymentOpts) => Promise<IpcResponse<ProcessPaymentResult>>;
+        listReceipts: (customerId?: string) => Promise<IpcResponse<DbReceipt[]>>;
+        getReceiptItems: (receiptId: string) => Promise<IpcResponse<DbReceiptItem[]>>;
+
+        getOutstanding: (customerId: string) => Promise<IpcResponse<number>>;
+        getPendingItems: (customerId: string) => Promise<IpcResponse<DbReceiptItem[]>>;
+        getAdvanceCredit: (customerId: string) => Promise<IpcResponse<number>>;
+        getCustomerLedger: (customerId: string) => Promise<IpcResponse<{ receipts: DbReceipt[]; ledger: DbLedgerEntry[] }>>;
+
+        getGstFiling: () => Promise<IpcResponse<GstFilingRow[]>>;
+        getInvoiceLines: (gstSeq: number) => Promise<IpcResponse<DbTaxInvoice[]>>;
+
+        exportCsv: () => Promise<IpcResponse<string>>;
+        reconcile: () => Promise<IpcResponse<{ customer_id?: string; gst_seq?: number; error: string }[]>>;
+        backup: () => Promise<IpcResponse<string>>;
+      };
     };
   }
 }

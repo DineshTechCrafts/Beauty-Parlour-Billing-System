@@ -9,7 +9,10 @@ import { BillHistoryTab } from './components/BillHistoryTab';
 import { CustomerTab } from './components/CustomerTab';
 import { Toast } from './components/Toast';
 import { PrintTemplate } from './components/PrintTemplate';
-import { InventoryItem, Bill, BillItem, BillRow, Customer } from './types';
+import { ReceiptTab } from './components/ReceiptTab';
+import { CustomerLedgerTab } from './components/CustomerLedgerTab';
+import { GstFilingTab } from './components/GstFilingTab';
+import { InventoryItem, Bill, BillItem, BillRow, Customer, ProcessPaymentResult } from './types';
 import { INITIAL_CATALOG } from './constants';
 
 const createEmptyServiceItem = (): BillItem => ({
@@ -631,13 +634,19 @@ export default function App() {
         <div className="tabs-container">
           <header className="header no-print">
             <h1>
-              {activeTab === 'billing' && 'Premium Billing System'}
+              {activeTab === 'receipt' && 'New Receipt'}
+              {activeTab === 'ledger' && 'Customer Ledger'}
+              {activeTab === 'gst' && 'GST Filing Register'}
+              {activeTab === 'billing' && 'Legacy Billing'}
               {activeTab === 'catalog' && 'Price Catalog Definitions'}
               {activeTab === 'inventory' && 'Inventory Records'}
               {activeTab === 'history' && 'Invoice Archive'}
               {activeTab === 'customers' && 'Customer Intelligence'}
             </h1>
             <p>
+              {activeTab === 'receipt' && 'Add items, process payments, and generate GST invoices on cash receipt.'}
+              {activeTab === 'ledger' && 'View customer outstanding, pending items, advance credit, and transaction ledger.'}
+              {activeTab === 'gst' && 'Strictly sequential GST invoice register for filing. Export CSV, reconcile, and backup.'}
               {activeTab === 'billing' && 'Generate professional clinic invoices and manage one-time transactions.'}
               {activeTab === 'catalog' && 'View current service menu and standard pricing definitions.'}
               {activeTab === 'inventory' && 'Maintain retail stock levels and category organization.'}
@@ -703,6 +712,18 @@ export default function App() {
               </div>
             </div>
           )}
+
+          {activeTab === 'receipt' && (
+            <ReceiptTab
+              inventory={inventory}
+              showToast={showToast}
+              onSuccess={(_result: ProcessPaymentResult, _customerId: string) => {
+                // optionally auto-navigate to ledger
+              }}
+            />
+          )}
+          {activeTab === 'ledger' && <CustomerLedgerTab />}
+          {activeTab === 'gst' && <GstFilingTab />}
 
           {activeTab === 'catalog' && <CatalogTab inventory={inventory} />}
           {activeTab === 'inventory' && <InventoryTab inventory={inventory} saveInventory={saveInventory} />}

@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const billingDb = require('./db.cjs');
 
 const isDev = process.env.NODE_ENV === 'development';
 
@@ -534,6 +535,129 @@ ipcMain.handle('save-inventory', async (event, inventoryData) => {
         return { success: false, error: error.message };
     }
 });
+
+// ─── SQLite billing DB helpers ────────────────────────────────────────────────
+
+const getDbPath = () => path.join(resolveDataDir(), 'billing.db');
+
+ipcMain.handle('db:list-customers', async () => {
+    try {
+        const data = billingDb.listCustomers(getDbPath());
+        return { success: true, data };
+    } catch (e) { return { success: false, error: e.message }; }
+});
+
+ipcMain.handle('db:get-customer', async (_e, customerId) => {
+    try {
+        const data = billingDb.getCustomer(getDbPath(), customerId);
+        return { success: true, data };
+    } catch (e) { return { success: false, error: e.message }; }
+});
+
+ipcMain.handle('db:create-customer', async (_e, data) => {
+    try {
+        const id = billingDb.createCustomer(getDbPath(), data);
+        return { success: true, data: id };
+    } catch (e) { return { success: false, error: e.message }; }
+});
+
+ipcMain.handle('db:update-customer', async (_e, customerId, data) => {
+    try {
+        billingDb.updateCustomer(getDbPath(), customerId, data);
+        return { success: true };
+    } catch (e) { return { success: false, error: e.message }; }
+});
+
+ipcMain.handle('db:process-payment', async (_e, opts) => {
+    try {
+        const result = billingDb.processPayment(getDbPath(), opts);
+        return { success: true, data: result };
+    } catch (e) { return { success: false, error: e.message }; }
+});
+
+ipcMain.handle('db:list-receipts', async (_e, customerId) => {
+    try {
+        const data = billingDb.listReceipts(getDbPath(), customerId);
+        return { success: true, data };
+    } catch (e) { return { success: false, error: e.message }; }
+});
+
+ipcMain.handle('db:get-receipt-items', async (_e, receiptId) => {
+    try {
+        const data = billingDb.getReceiptItems(getDbPath(), receiptId);
+        return { success: true, data };
+    } catch (e) { return { success: false, error: e.message }; }
+});
+
+ipcMain.handle('db:get-outstanding', async (_e, customerId) => {
+    try {
+        const data = billingDb.getOutstanding(getDbPath(), customerId);
+        return { success: true, data };
+    } catch (e) { return { success: false, error: e.message }; }
+});
+
+ipcMain.handle('db:get-pending-items', async (_e, customerId) => {
+    try {
+        const data = billingDb.getPendingItems(getDbPath(), customerId);
+        return { success: true, data };
+    } catch (e) { return { success: false, error: e.message }; }
+});
+
+ipcMain.handle('db:get-advance-credit', async (_e, customerId) => {
+    try {
+        const data = billingDb.getAdvanceCredit(getDbPath(), customerId);
+        return { success: true, data };
+    } catch (e) { return { success: false, error: e.message }; }
+});
+
+ipcMain.handle('db:get-customer-ledger', async (_e, customerId) => {
+    try {
+        const data = billingDb.getCustomerLedger(getDbPath(), customerId);
+        return { success: true, data };
+    } catch (e) { return { success: false, error: e.message }; }
+});
+
+ipcMain.handle('db:get-gst-filing', async () => {
+    try {
+        const data = billingDb.getGstFilingList(getDbPath());
+        return { success: true, data };
+    } catch (e) { return { success: false, error: e.message }; }
+});
+
+ipcMain.handle('db:get-invoice-lines', async (_e, gstSeq) => {
+    try {
+        const data = billingDb.getInvoiceLines(getDbPath(), gstSeq);
+        return { success: true, data };
+    } catch (e) { return { success: false, error: e.message }; }
+});
+
+ipcMain.handle('db:export-csv', async () => {
+    try {
+        const csv = billingDb.exportCsv(getDbPath());
+        const outPath = path.join(resolveDataDir(), 'bills_export.csv');
+        fs.writeFileSync(outPath, csv, 'utf8');
+        return { success: true, data: outPath };
+    } catch (e) { return { success: false, error: e.message }; }
+});
+
+ipcMain.handle('db:reconcile', async () => {
+    try {
+        const errors = billingDb.reconcile(getDbPath());
+        return { success: true, data: errors };
+    } catch (e) { return { success: false, error: e.message }; }
+});
+
+ipcMain.handle('db:backup', async () => {
+    try {
+        const now = new Date();
+        const ts = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
+        const destPath = path.join(resolveDataDir(), `billing_backup_${ts}.db`);
+        billingDb.backup(getDbPath(), destPath);
+        return { success: true, data: destPath };
+    } catch (e) { return { success: false, error: e.message }; }
+});
+
+// ─── Save PDF ─────────────────────────────────────────────────────────────────
 
 // Save PDF
 ipcMain.handle('save-pdf', async (event, filename) => {
