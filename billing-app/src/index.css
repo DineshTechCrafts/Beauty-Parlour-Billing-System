@@ -1096,6 +1096,14 @@
    border-radius: var(--radius-lg);
    padding: 1rem 1.25rem;
    box-shadow: var(--shadow-sm);
+   margin-bottom: 0.75rem;
+ }
+
+ /* Visible divider between search and filter dropdowns */
+ .ctab-filter-bar .ctab-select-wrap:first-of-type {
+   margin-left: 1.25rem;
+   padding-left: 1.25rem;
+   border-left: 1px solid var(--border-light);
  }
 
  /* Search */
@@ -1387,6 +1395,69 @@
    font-size: 0.875rem;
    margin-bottom: 0.5rem;
  }
+
+ /* ── Products Menu (ptab) extras ── */
+ .ptab-card-brand {
+   font-size: 0.7rem;
+   font-weight: 700;
+   text-transform: uppercase;
+   letter-spacing: 0.05em;
+   opacity: 0.75;
+   margin-left: auto;
+ }
+
+ .ptab-card-meta {
+   display: flex;
+   align-items: center;
+   flex-wrap: wrap;
+   gap: 0.35rem;
+   margin-bottom: 0.5rem;
+ }
+
+ .ptab-meta-pill {
+   font-size: 0.7rem;
+   font-weight: 600;
+   padding: 0.2rem 0.5rem;
+   border-radius: var(--radius-full);
+   background: #f1f5f9;
+   color: var(--text-secondary);
+   border: 1px solid var(--border-light);
+ }
+
+ .ptab-meta-mrp {
+   font-size: 0.7rem;
+   font-weight: 500;
+   color: var(--text-muted);
+   text-decoration: line-through;
+ }
+
+ .ptab-meta-stock {
+   font-size: 0.7rem;
+   font-weight: 700;
+ }
+
+ /* Stock status on left, unit count pushed to far right */
+ .ptab-meta-stock-row {
+   display: flex;
+   align-items: center;
+   justify-content: space-between;
+   width: 100%;
+   gap: 0.3rem;
+ }
+
+ .ptab-meta-stock-count {
+   font-size: 0.7rem;
+   font-weight: 600;
+   opacity: 0.85;
+ }
+
+ .ptab-empty-icon {
+   margin-bottom: 0.75rem;
+   display: flex;
+   justify-content: center;
+ }
+
+
 
  /* ════════════════════════════════════════════════════════════════
    PRINT / BILL TEMPLATE  — matches sample bill format
