@@ -206,6 +206,15 @@ export interface ProcessPaymentResult {
   error?: string;
 }
 
+export interface CreditLedgerEntry {
+  txn_id: number;
+  customer_id: string;
+  type: 'PAYMENT' | 'INVOICE' | 'ADVANCE_CREDIT' | 'CREDIT_USED' | 'REFUND';
+  amount: number;
+  ref_id: string;
+  date: string;
+}
+
 // ── Extended ElectronAPI ────────────────────────────────────────────────────
 
 declare global {
@@ -229,6 +238,7 @@ declare global {
       billingCancelPendingItems: (payload: { customerId: string; lineIds: string[] }) => Promise<{ success: boolean; cancelled?: number; outstanding?: number; advance_credit?: number; error?: string }>;
       billingRefundCredit: (payload: { customerId: string; amount: number; note?: string }) => Promise<{ success: boolean; refunded?: number; advance_credit?: number; error?: string }>;
       billingGetTaxInvoices: () => Promise<{ success: boolean; data?: TaxInvoice[]; error?: string }>;
+      billingGetCustomerLedger: (customerId: string) => Promise<{ success: boolean; entries?: CreditLedgerEntry[]; error?: string }>;
     };
   }
 }

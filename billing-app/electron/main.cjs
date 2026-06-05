@@ -1131,6 +1131,20 @@ ipcMain.handle('billing:get-customer-queue', async (event, customerId) => {
     }
 });
 
+ipcMain.handle('billing:get-customer-ledger', async (event, customerId) => {
+    try {
+        const dataDir = resolveDataDir();
+        const billing = loadBilling(dataDir);
+        const entries = billing.credit_ledger
+            .filter(e => e.customer_id === customerId)
+            .sort((a, b) => a.txn_id - b.txn_id);
+        return { success: true, entries };
+    } catch (error) {
+        console.error('billing:get-customer-ledger failed:', error);
+        return { success: false, error: error.message };
+    }
+});
+
 ipcMain.handle('billing:get-customer-info', async (event, customerId) => {
     try {
         const dataDir = resolveDataDir();

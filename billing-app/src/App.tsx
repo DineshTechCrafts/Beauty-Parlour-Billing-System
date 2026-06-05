@@ -8,6 +8,7 @@ import { ProductsTab } from './components/ProductsTab';
 import { InventoryTab } from './components/InventoryTab';
 import { BillHistoryTab } from './components/BillHistoryTab';
 import { CustomerTab } from './components/CustomerTab';
+import { CustomerLedgerTab } from './components/CustomerLedgerTab';
 import { TaxReportTab } from './components/TaxReportTab';
 import { Toast } from './components/Toast';
 import { PrintTemplate } from './components/PrintTemplate';
@@ -92,7 +93,7 @@ export default function App() {
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [historyBills, setHistoryBills] = useState<Bill[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
-  const [currentBillId, setCurrentBillId] = useState<number>(1);
+  const [_currentBillId, setCurrentBillId] = useState<number>(1);
   const [producedBill, setProducedBill] = useState<Bill | null>(null);
   const [sessions, setSessions] = useState<Record<string, Record<string, { total: number; completed: number }>>>({});
 
@@ -335,7 +336,7 @@ export default function App() {
   }, [clientPhone, clientName, loadCustomerInfo]);
 
   useEffect(() => {
-    if (activeTab === 'history' || activeTab === 'customers' || activeTab === 'billing') fetchHistory();
+    if (activeTab === 'history' || activeTab === 'customers' || activeTab === 'billing' || activeTab === 'ledger') fetchHistory();
     if (activeTab === 'billing') fetchNextBillId();
   }, [activeTab, fetchHistory, fetchNextBillId]);
 
@@ -588,6 +589,7 @@ export default function App() {
               {activeTab === 'inventory' && 'Inventory Records'}
               {activeTab === 'history' && 'Invoice Archive'}
               {activeTab === 'customers' && 'Customer Intelligence'}
+              {activeTab === 'ledger' && 'Credit Ledger'}
               {activeTab === 'taxreport' && 'Tax Report'}
             </h1>
             <p>
@@ -597,6 +599,7 @@ export default function App() {
               {activeTab === 'inventory' && 'Maintain retail stock levels and category organization.'}
               {activeTab === 'history' && 'Access past records and track business performance.'}
               {activeTab === 'customers' && 'Search loyalty trends, review visit history, and audit session progress.'}
+              {activeTab === 'ledger' && 'View per-customer payment and invoice history with running credit balance.'}
               {activeTab === 'taxreport' && 'Filter GST invoices by month and year, then export to Excel.'}
             </p>
           </header>
@@ -667,6 +670,7 @@ export default function App() {
           {activeTab === 'inventory' && <InventoryTab inventory={inventory} saveInventory={saveInventory} />}
           {activeTab === 'history' && <BillHistoryTab bills={historyBills} onEdit={onEditBill} />}
           {activeTab === 'customers' && <CustomerTab customers={customers} sessions={sessions} isActive={activeTab === 'customers'} />}
+          {activeTab === 'ledger' && <CustomerLedgerTab customers={customers} isActive={activeTab === 'ledger'} />}
           {activeTab === 'taxreport' && <TaxReportTab isActive={activeTab === 'taxreport'} />}
         </div>
       </main>
