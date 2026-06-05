@@ -442,14 +442,18 @@ ipcMain.handle('save-bill', async (event, billData) => {
 ipcMain.handle('get-sessions', async () => {
     try {
         const dataDir = resolveDataDir();
-        const sessionsFile = path.join(dataDir, 'sessions.json');
-
-        if (fs.existsSync(sessionsFile)) {
-            const raw = fs.readFileSync(sessionsFile, 'utf8') || '{}';
-            return { success: true, data: JSON.parse(raw) };
-        }
-
-        return { success: true, data: {} };
+        const raw = loadSessionsRaw(dataDir);
+        // Strip _-prefixed billing metadata — React only needs service session data
+        const filtered = {};
+        Object.keys(raw).forEach(clientKey => {
+            filtered[clientKey] = {};
+            Object.keys(raw[clientKey] || {}).forEach(key => {
+                if (!key.startsWith('_')) {
+                    filtered[clientKey][key] = raw[clientKey][key];
+                }
+            });
+        });
+        return { success: true, data: filtered };
     } catch (error) {
         console.error('Failed to get sessions:', error);
         return { success: false, error: error.message };
@@ -459,8 +463,18 @@ ipcMain.handle('get-sessions', async () => {
 ipcMain.handle('save-sessions', async (event, data) => {
     try {
         const dataDir = resolveDataDir();
-        const sessionsFile = path.join(dataDir, 'sessions.json');
-        fs.writeFileSync(sessionsFile, JSON.stringify(data || {}, null, 2), 'utf8');
+        const existing = loadSessionsRaw(dataDir);
+        // Merge: keep incoming service data, preserve all _-prefixed keys from disk
+        const merged = JSON.parse(JSON.stringify(data || {}));
+        Object.keys(existing).forEach(clientKey => {
+            if (!merged[clientKey]) merged[clientKey] = {};
+            Object.keys(existing[clientKey] || {}).forEach(key => {
+                if (key.startsWith('_')) {
+                    merged[clientKey][key] = existing[clientKey][key];
+                }
+            });
+        });
+        saveSessionsAtomic(dataDir, merged);
         return { success: true };
     } catch (error) {
         console.error('Failed to save sessions:', error);
@@ -534,6 +548,511 @@ ipcMain.handle('save-inventory', async (event, inventoryData) => {
         return { success: false, error: error.message };
     }
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BILLING SYSTEM — billing.json engine (spec: billing_system_spec_json.md)
+// ═══════════════════════════════════════════════════════════════════════════
+
+const BILLING_SEED = {
+    receipts: [],
+    receipt_items: [],
+    tax_invoices: [],
+    credit_ledger: [],
+    counters: { gst_seq: 1, receipt_base: 1 },
+    customer_series: {}
+};
+
+const SELLER_STATE = '33';
+
+// Atomic write: temp file → fsync → rename (Section 12)
+const writeJsonAtomic = (filePath, data) => {
+    const dir = path.dirname(filePath);
+    const tmpPath = path.join(dir, `.tmp_${path.basename(filePath)}_${Date.now()}`);
+    const jsonStr = JSON.stringify(data, null, 2);
+    const fd = fs.openSync(tmpPath, 'w');
+    try {
+        fs.writeSync(fd, jsonStr, 0, 'utf8');
+        fs.fsyncSync(fd);
+    } finally {
+        fs.closeSync(fd);
+    }
+    fs.renameSync(tmpPath, filePath);
+};
+
+const loadBilling = (dataDir) => {
+    const billingPath = path.join(dataDir, 'billing.json');
+    if (!fs.existsSync(billingPath)) {
+        writeJsonAtomic(billingPath, BILLING_SEED);
+        return JSON.parse(JSON.stringify(BILLING_SEED));
+    }
+    return safeReadJson(billingPath, JSON.parse(JSON.stringify(BILLING_SEED)));
+};
+
+const saveBilling = (dataDir, data) => {
+    writeJsonAtomic(path.join(dataDir, 'billing.json'), data);
+};
+
+const loadSessionsRaw = (dataDir) => safeReadJson(path.join(dataDir, 'sessions.json'), {});
+
+const saveSessionsAtomic = (dataDir, data) => {
+    writeJsonAtomic(path.join(dataDir, 'sessions.json'), data);
+};
+
+// Round to 2 decimal places (all money values)
+const roundMoney = (val) => Math.round((val + Number.EPSILON) * 100) / 100;
+
+// Section 6 — next receipt_id for a customer
+const getNextReceiptId = (billing, customerId) => {
+    const base = billing.customer_series[customerId];
+    if (base == null) throw new Error(`No active base for customer ${customerId}`);
+    const baseStr = String(base);
+    const n = billing.receipts.filter(r =>
+        r.customer_id === customerId &&
+        (r.receipt_id === baseStr || r.receipt_id.startsWith(baseStr + ' '))
+    ).length;
+    if (n === 0) return baseStr;
+    const letter = String.fromCharCode(65 + (n - 1) % 26);
+    const num = Math.floor((n - 1) / 26);
+    return `${baseStr} ${letter}${num > 0 ? num : ''}`;
+};
+
+// Section 5 — derived balances
+const getOutstanding = (billing, customerId) =>
+    billing.receipt_items
+        .filter(i => i.customer_id === customerId && i.status === 'PENDING')
+        .reduce((s, i) => s + i.taxed_total, 0);
+
+const getAdvanceCredit = (billing, customerId) => {
+    const ledger = billing.credit_ledger.filter(e => e.customer_id === customerId);
+    const advances = ledger.filter(e => e.type === 'ADVANCE_CREDIT').reduce((s, e) => s + e.amount, 0);
+    const used = ledger.filter(e => e.type === 'CREDIT_USED').reduce((s, e) => s + e.amount, 0);
+    return roundMoney(advances - used);
+};
+
+// Update _billing + _customer cache in sessions.json (Section 4.7)
+const updateSessionCache = (dataDir, customerId, billing, customerInfo) => {
+    const sessions = loadSessionsRaw(dataDir);
+    if (!sessions[customerId]) sessions[customerId] = {};
+    sessions[customerId]._billing = {
+        outstanding: roundMoney(getOutstanding(billing, customerId)),
+        advance_credit: getAdvanceCredit(billing, customerId),
+        current_receipt_base: billing.customer_series[customerId] ?? null
+    };
+    if (customerInfo) {
+        sessions[customerId]._customer = {
+            address: customerInfo.address || sessions[customerId]._customer?.address || '',
+            state_code: customerInfo.stateCode || sessions[customerId]._customer?.state_code || SELLER_STATE
+        };
+    }
+    saveSessionsAtomic(dataDir, sessions);
+};
+
+// Write tax invoice rows to bills.csv for history-tab compatibility
+const appendInvoiceToCsv = (dataDir, invoiceEntries) => {
+    if (!invoiceEntries || invoiceEntries.length === 0) return;
+    const csvFile = path.join(dataDir, 'bills.csv');
+    const fullHeader = 'BillId,Date,ClientName,ClientPhone,ClientAddress,SubTotal,Discount,CGST,SGST,Total,ItemDescription,Price,Quantity,Amount,ServiceTotal,ProductTotal,TaxableAmount,GSTTotal,GstRate,BillingMode,PlaceOfSupply,BuyerGstin,BuyerLegalName,BuyerStateCode,IGST,ReverseCharge,InvoiceType,SacHsnCode,Unit';
+    if (!fs.existsSync(csvFile)) {
+        fs.writeFileSync(csvFile, fullHeader + '\n', 'utf8');
+    }
+    const sanitize = (val) => {
+        const str = String(val ?? '');
+        return (str.includes(',') || str.includes('"') || str.includes('\n'))
+            ? `"${str.replace(/"/g, '""')}"` : str;
+    };
+    const first = invoiceEntries[0];
+    const dateStr = first.date ? formatCSVDate(new Date(first.date)) : formatCSVDate(new Date());
+    let rows = '';
+    invoiceEntries.forEach(entry => {
+        rows += [
+            sanitize(first.receipt_id),
+            sanitize(dateStr),
+            sanitize(first.client_name),
+            sanitize(first.client_phone),
+            sanitize(first.client_address),
+            sanitize(first.sub_total),
+            sanitize(first.discount),
+            sanitize(first.cgst),
+            sanitize(first.sgst),
+            sanitize(first.total),
+            sanitize(entry.item_description),
+            sanitize(entry.price),
+            sanitize(entry.quantity),
+            sanitize(entry.amount),
+            sanitize(first.service_total),
+            sanitize(first.product_total),
+            sanitize(first.taxable_amount),
+            sanitize(first.gst_total),
+            sanitize(first.gst_rate ?? ''),
+            sanitize('b2c'),
+            sanitize(first.place_of_supply),
+            '', '', sanitize(SELLER_STATE), sanitize(first.igst), 'N',
+            sanitize(first.invoice_type),
+            sanitize(entry.sac_hsn_code),
+            sanitize(entry.unit)
+        ].join(',') + '\n';
+    });
+    fs.appendFileSync(csvFile, rows, 'utf8');
+};
+
+// Section 9A — Process a Payment (one atomic write)
+const processPayment = (dataDir, payload) => {
+    const billing = loadBilling(dataDir);
+    const today = new Date().toISOString().split('T')[0];
+    const customerId = payload.customerId;
+
+    const hasItems = Array.isArray(payload.items) && payload.items.length > 0;
+    const hasPayment = payload.payment != null && Number(payload.payment) > 0;
+    if (!hasItems && !hasPayment) throw new Error('Receipt must have items, payment, or both');
+
+    const mode = hasItems && hasPayment ? 'ITEMS_PAYMENT'
+        : hasItems ? 'ITEMS_ONLY'
+        : 'PAYMENT_ONLY';
+
+    // Step 1 — assign receipt_id; allocate base for new customer
+    if (billing.customer_series[customerId] == null) {
+        billing.customer_series[customerId] = billing.counters.receipt_base;
+        billing.counters.receipt_base += 1;
+    }
+    const receiptId = getNextReceiptId(billing, customerId);
+    billing.receipts.push({
+        receipt_id: receiptId,
+        customer_id: customerId,
+        receipt_date: today,
+        payment: hasPayment ? roundMoney(Number(payload.payment)) : null,
+        mode,
+        bill_receipt_first: mode === 'ITEMS_PAYMENT' ? (payload.billReceiptFirst || false) : false,
+        created_at: new Date().toISOString()
+    });
+
+    // Step 2 — expand items to one row per unit
+    let lineIdx = 1;
+    if (hasItems) {
+        for (const item of payload.items) {
+            const qty = Math.max(1, Math.floor(Number(item.qty || 1)));
+            const price = roundMoney(Number(item.price));
+            const discount = roundMoney(Number(item.discount || 0));
+            const netTaxable = roundMoney(price - discount);
+            const gstRate = Number(item.gstRate || 0);
+            const taxedTotal = roundMoney(netTaxable * (1 + gstRate / 100));
+            for (let u = 0; u < qty; u++) {
+                billing.receipt_items.push({
+                    line_id: `${receiptId}#${lineIdx}`,
+                    receipt_id: receiptId,
+                    customer_id: customerId,
+                    product_code: item.catalogId || '',
+                    item_description: item.description,
+                    type: item.type || 'SERVICE',
+                    price,
+                    amount: price,
+                    discount,
+                    gst_rate: gstRate,
+                    taxed_total: taxedTotal,
+                    sac_hsn_code: item.sacHsnCode || '',
+                    unit: item.unit || 'NOS',
+                    status: 'PENDING',
+                    invoiced_in_seq: null
+                });
+                lineIdx++;
+            }
+        }
+    }
+
+    // ITEMS_ONLY: commit here, no allocation
+    if (mode === 'ITEMS_ONLY') {
+        saveBilling(dataDir, billing);
+        updateSessionCache(dataDir, customerId, billing, { address: payload.address, stateCode: payload.stateCode });
+        return { success: true, receiptId, mode, gstSeq: null };
+    }
+
+    // Step 3 — PAYMENT ledger entry
+    let nextTxnId = billing.credit_ledger.length > 0
+        ? Math.max(...billing.credit_ledger.map(e => e.txn_id)) + 1 : 1;
+    billing.credit_ledger.push({
+        txn_id: nextTxnId++,
+        customer_id: customerId,
+        type: 'PAYMENT',
+        amount: roundMoney(Number(payload.payment)),
+        ref_id: receiptId,
+        date: today
+    });
+
+    // Step 4 — consume existing advance credit
+    const existingCredit = getAdvanceCredit(billing, customerId);
+    let allocatable = roundMoney(existingCredit + Number(payload.payment));
+    if (existingCredit > 0) {
+        billing.credit_ledger.push({
+            txn_id: nextTxnId++,
+            customer_id: customerId,
+            type: 'CREDIT_USED',
+            amount: roundMoney(existingCredit),
+            ref_id: receiptId,
+            date: today
+        });
+    }
+
+    // Step 5 — build allocation queue
+    const receiptDateMap = {};
+    billing.receipts.forEach(r => { receiptDateMap[r.receipt_id] = r.receipt_date; });
+    const pendingItems = billing.receipt_items.filter(
+        i => i.customer_id === customerId && i.status === 'PENDING'
+    );
+    const sortByFifo = (a, b) => {
+        const da = receiptDateMap[a.receipt_id] || '';
+        const db = receiptDateMap[b.receipt_id] || '';
+        return da !== db ? da.localeCompare(db) : a.line_id.localeCompare(b.line_id);
+    };
+    let queue;
+    if (mode === 'ITEMS_PAYMENT' && payload.billReceiptFirst) {
+        const thisReceipt = pendingItems.filter(i => i.receipt_id === receiptId)
+            .sort((a, b) => a.line_id.localeCompare(b.line_id));
+        const others = pendingItems.filter(i => i.receipt_id !== receiptId).sort(sortByFifo);
+        queue = [...thisReceipt, ...others];
+    } else {
+        queue = [...pendingItems].sort(sortByFifo);
+    }
+
+    // Step 6 — walk queue
+    const covered = [];
+    for (const unit of queue) {
+        if (roundMoney(allocatable) >= unit.taxed_total) {
+            unit.status = 'INVOICED';
+            covered.push(unit);
+            allocatable = roundMoney(allocatable - unit.taxed_total);
+        } else {
+            break;
+        }
+    }
+
+    // Step 7 — create tax invoice if units covered
+    let gstSeq = null;
+    if (covered.length > 0) {
+        gstSeq = billing.counters.gst_seq;
+        billing.counters.gst_seq += 1;
+        covered.forEach(u => { u.invoiced_in_seq = gstSeq; });
+
+        // Bill-level totals
+        const subTotal = roundMoney(covered.reduce((s, u) => s + u.amount, 0));
+        const discountTotal = roundMoney(covered.reduce((s, u) => s + u.discount, 0));
+        const taxableAmount = roundMoney(subTotal - discountTotal);
+        const serviceTotal = roundMoney(covered.filter(u => u.type === 'SERVICE').reduce((s, u) => s + (u.amount - u.discount), 0));
+        const productTotal = roundMoney(covered.filter(u => u.type === 'PRODUCT').reduce((s, u) => s + (u.amount - u.discount), 0));
+        const gstTotalCalc = roundMoney(covered.reduce((s, u) => s + roundMoney((u.amount - u.discount) * u.gst_rate / 100), 0));
+
+        const buyerState = payload.stateCode || SELLER_STATE;
+        let cgst = 0, sgst = 0, igst = 0;
+        if (buyerState === SELLER_STATE) {
+            cgst = roundMoney(gstTotalCalc / 2);
+            sgst = roundMoney(gstTotalCalc - cgst); // avoid floating rounding drift
+        } else {
+            igst = gstTotalCalc;
+        }
+        const total = roundMoney(taxableAmount + gstTotalCalc);
+
+        const rates = [...new Set(covered.map(u => u.gst_rate))];
+        const billGstRate = rates.length === 1 ? rates[0] : null;
+
+        const [clientPhone, ...nameParts] = customerId.split('::');
+        const clientName = nameParts.join('::');
+
+        const billLevelFields = {
+            gst_seq: gstSeq,
+            receipt_id: receiptId,
+            date: today,
+            client_name: clientName,
+            client_phone: clientPhone,
+            client_address: payload.address || '',
+            sub_total: subTotal,
+            discount: discountTotal,
+            cgst, sgst, igst,
+            gst_total: gstTotalCalc,
+            taxable_amount: taxableAmount,
+            service_total: serviceTotal,
+            product_total: productTotal,
+            total,
+            gst_rate: billGstRate,
+            billing_mode: 'b2c',
+            place_of_supply: buyerState,
+            buyer_gstin: '',
+            buyer_legal_name: '',
+            buyer_state_code: SELLER_STATE,
+            reverse_charge: 'N',
+            invoice_type: 'Tax Invoice'
+        };
+
+        covered.forEach(u => {
+            billing.tax_invoices.push({
+                ...billLevelFields,
+                item_description: u.item_description,
+                price: u.price,
+                quantity: 1,
+                amount: u.amount,
+                sac_hsn_code: u.sac_hsn_code,
+                unit: u.unit,
+                source_receipt_id: u.receipt_id,
+                source_line_id: u.line_id
+            });
+        });
+
+        billing.credit_ledger.push({
+            txn_id: nextTxnId++,
+            customer_id: customerId,
+            type: 'INVOICE',
+            amount: total,
+            ref_id: String(gstSeq),
+            date: today
+        });
+
+        // Write to bills.csv for history-tab compatibility
+        appendInvoiceToCsv(dataDir, billing.tax_invoices.filter(e => e.gst_seq === gstSeq));
+    }
+
+    // Step 8 — remaining becomes advance credit
+    if (roundMoney(allocatable) > 0) {
+        billing.credit_ledger.push({
+            txn_id: nextTxnId++,
+            customer_id: customerId,
+            type: 'ADVANCE_CREDIT',
+            amount: roundMoney(allocatable),
+            ref_id: receiptId,
+            date: today
+        });
+    }
+
+    // Commit
+    saveBilling(dataDir, billing);
+    updateSessionCache(dataDir, customerId, billing, { address: payload.address, stateCode: payload.stateCode });
+
+    return {
+        success: true,
+        receiptId,
+        mode,
+        gstSeq,
+        outstanding: roundMoney(getOutstanding(billing, customerId)),
+        advanceCredit: getAdvanceCredit(billing, customerId)
+    };
+};
+
+// Section 9B — Start New Series
+const startNewSeries = (dataDir, customerId) => {
+    const billing = loadBilling(dataDir);
+    const newBase = billing.counters.receipt_base;
+    billing.counters.receipt_base += 1;
+    billing.customer_series[customerId] = newBase;
+    saveBilling(dataDir, billing);
+    updateSessionCache(dataDir, customerId, billing, null);
+    return { success: true, newBase };
+};
+
+// Section 12 — Startup rebuild of all _billing caches
+const rebuildAllCaches = (dataDir) => {
+    const billing = loadBilling(dataDir);
+    const sessions = loadSessionsRaw(dataDir);
+    const customerIds = [...new Set([
+        ...billing.receipts.map(r => r.customer_id),
+        ...Object.keys(billing.customer_series)
+    ])];
+    customerIds.forEach(cid => {
+        if (!sessions[cid]) sessions[cid] = {};
+        sessions[cid]._billing = {
+            outstanding: roundMoney(getOutstanding(billing, cid)),
+            advance_credit: getAdvanceCredit(billing, cid),
+            current_receipt_base: billing.customer_series[cid] ?? null
+        };
+    });
+    saveSessionsAtomic(dataDir, sessions);
+    return { customersRebuilt: customerIds.length };
+};
+
+// Section 13 — Reconciliation checks
+const runReconciliation = (billing) => {
+    const errors = [];
+    const customerIds = [...new Set([
+        ...billing.receipts.map(r => r.customer_id),
+        ...billing.credit_ledger.map(e => e.customer_id)
+    ])];
+    customerIds.forEach(cid => {
+        const ledger = billing.credit_ledger.filter(e => e.customer_id === cid);
+        const payments = ledger.filter(e => e.type === 'PAYMENT').reduce((s, e) => s + e.amount, 0);
+        const invoices = ledger.filter(e => e.type === 'INVOICE').reduce((s, e) => s + e.amount, 0);
+        const advCredit = getAdvanceCredit(billing, cid);
+        const diff = roundMoney(Math.abs(payments - (invoices + advCredit)));
+        if (diff > 0.01) errors.push({ customerId: cid, payments, invoices, advCredit, diff });
+    });
+    const seqs = [...new Set(billing.tax_invoices.map(e => e.gst_seq))];
+    seqs.forEach(seq => {
+        const entries = billing.tax_invoices.filter(e => e.gst_seq === seq);
+        const ledgerTotal = billing.credit_ledger
+            .filter(e => e.type === 'INVOICE' && e.ref_id === String(seq))
+            .reduce((s, e) => s + e.amount, 0);
+        const billTotal = entries[0]?.total || 0;
+        if (Math.abs(ledgerTotal - billTotal) > 0.01)
+            errors.push({ gstSeq: seq, ledgerTotal, billTotal });
+    });
+    return errors;
+};
+
+// ── Billing IPC handlers ────────────────────────────────────────────────────
+
+ipcMain.handle('billing:init', async () => {
+    try {
+        const dataDir = resolveDataDir();
+        const rebuild = rebuildAllCaches(dataDir);
+        const billing = loadBilling(dataDir);
+        const reconErrors = runReconciliation(billing);
+        if (reconErrors.length > 0) {
+            console.warn('Reconciliation errors on startup:', JSON.stringify(reconErrors));
+        }
+        return { success: true, rebuild, reconErrors };
+    } catch (error) {
+        console.error('billing:init failed:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle('billing:process-payment', async (event, payload) => {
+    try {
+        const dataDir = resolveDataDir();
+        return processPayment(dataDir, payload);
+    } catch (error) {
+        console.error('billing:process-payment failed:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle('billing:start-new-series', async (event, customerId) => {
+    try {
+        const dataDir = resolveDataDir();
+        return startNewSeries(dataDir, customerId);
+    } catch (error) {
+        console.error('billing:start-new-series failed:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle('billing:get-customer-info', async (event, customerId) => {
+    try {
+        const dataDir = resolveDataDir();
+        const billing = loadBilling(dataDir);
+        const sessions = loadSessionsRaw(dataDir);
+        const cust = sessions[customerId] || {};
+        const data = {
+            outstanding: roundMoney(getOutstanding(billing, customerId)),
+            advance_credit: getAdvanceCredit(billing, customerId),
+            current_receipt_base: billing.customer_series[customerId] ?? null,
+            next_receipt_id: billing.customer_series[customerId] != null
+                ? getNextReceiptId(billing, customerId) : null,
+            address: cust._customer?.address || '',
+            state_code: cust._customer?.state_code || SELLER_STATE
+        };
+        return { success: true, data };
+    } catch (error) {
+        console.error('billing:get-customer-info failed:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// ── Modify existing sessions handlers to preserve _-prefixed keys ───────────
 
 // Save PDF
 ipcMain.handle('save-pdf', async (event, filename) => {

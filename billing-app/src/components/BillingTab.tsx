@@ -163,6 +163,8 @@ const NameCombobox: React.FC<{
     );
 };
 
+import { CustomerBillingInfo } from '../types';
+
 interface BillingTabProps {
     clientName: string;
     setClientName: (v: string) => void;
@@ -184,9 +186,16 @@ interface BillingTabProps {
     gstRate: number;
     setGstRate: (v: number) => void;
 
+    paymentAmount: string;
+    setPaymentAmount: (v: string) => void;
+    billReceiptFirst: boolean;
+    setBillReceiptFirst: (v: boolean) => void;
+
     inventory: InventoryItem[];
     handleProduceBill: () => void;
-    currentBillId: number;
+    handleStartNewSeries: () => void;
+    nextReceiptId: string | null;
+    customerBillingInfo: CustomerBillingInfo | null;
     sessions: Record<string, Record<string, { total: number; completed: number }>>;
     customers: Customer[];
 }
@@ -363,8 +372,18 @@ export const BillingTab: React.FC<BillingTabProps> = ({
     placeOfSupply, setPlaceOfSupply,
     productItems, setProductItems, serviceItems, setServiceItems,
     applyGST, setApplyGST, gstRate, setGstRate,
-    inventory, handleProduceBill, currentBillId, sessions, customers
+    paymentAmount, setPaymentAmount, billReceiptFirst, setBillReceiptFirst,
+    inventory, handleProduceBill, handleStartNewSeries, nextReceiptId, customerBillingInfo,
+    sessions, customers
 }) => {
+    const [seriesCooldown, setSeriesCooldown] = useState(false);
+
+    const handleStartNewSeriesClick = () => {
+        if (seriesCooldown) return;
+        handleStartNewSeries();
+        setSeriesCooldown(true);
+        setTimeout(() => setSeriesCooldown(false), 5000);
+    };
     const sanitizedPhone = clientPhone.replace(/\D/g, '');
     const normalizedInputName = clientName.trim().toLowerCase().replace(/\s+/g, ' ');
     const returningCustomer = useMemo(() => {
@@ -821,7 +840,7 @@ export const BillingTab: React.FC<BillingTabProps> = ({
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                             {returningCustomer && <span className="badge-returning">Returning Customer</span>}
-                            <div className="bill-id-pill">ID: #{currentBillId}</div>
+                            <div className="bill-id-pill">Receipt: {nextReceiptId ?? '—'}</div>
                         </div>
                     </div>
 
@@ -880,6 +899,35 @@ export const BillingTab: React.FC<BillingTabProps> = ({
                             <StateSelect value={placeOfSupply} onChange={isPhoneLocked ? () => {} : setPlaceOfSupply} disabled={isPhoneLocked} />
                         </div>
                     </div>
+
+                    {customerBillingInfo && (
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '1rem', padding: '0.75rem 1rem', background: '#f8fafc', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
+                            <div style={{ display: 'flex', gap: '1.5rem' }}>
+                                {customerBillingInfo.outstanding > 0 && (
+                                    <span style={{ fontSize: '0.8rem', color: '#ef4444' }}>
+                                        Outstanding: <strong>{formatCurrency(customerBillingInfo.outstanding)}</strong>
+                                    </span>
+                                )}
+                                {customerBillingInfo.advance_credit > 0 && (
+                                    <span style={{ fontSize: '0.8rem', color: '#16a34a' }}>
+                                        Advance Credit: <strong>{formatCurrency(customerBillingInfo.advance_credit)}</strong>
+                                    </span>
+                                )}
+                                {customerBillingInfo.outstanding === 0 && customerBillingInfo.advance_credit === 0 && (
+                                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>No balance</span>
+                                )}
+                            </div>
+                            <button
+                                type="button"
+                                className="btn btn-secondary btn-sm"
+                                style={{ fontSize: '0.75rem', padding: '0.3rem 0.75rem', opacity: seriesCooldown ? 0.6 : 1 }}
+                                onClick={handleStartNewSeriesClick}
+                                disabled={seriesCooldown}
+                            >
+                                {seriesCooldown ? 'Starting…' : 'Start New Series'}
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 <div style={{ opacity: isPhoneLocked ? 0.4 : 1, pointerEvents: isPhoneLocked ? 'none' : 'auto' }}>
@@ -958,6 +1006,33 @@ export const BillingTab: React.FC<BillingTabProps> = ({
                     <div className="summary-total-row">
                         <span>Total Due</span>
                         <span className="total">{formatCurrency(summaryData.grandTotal)}</span>
+                    </div>
+
+                    {/* Payment section */}
+                    <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                        <div className="form-group" style={{ margin: 0 }}>
+                            <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.3rem', display: 'block' }}>
+                                Payment Received (₹)
+                            </label>
+                            <input
+                                type="number"
+                                className="form-control"
+                                placeholder="Leave blank — items only"
+                                min="0"
+                                step="0.01"
+                                value={paymentAmount}
+                                onChange={e => setPaymentAmount(e.target.value)}
+                            />
+                        </div>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', color: 'var(--text-secondary)', cursor: 'pointer', userSelect: 'none' }}>
+                            <input
+                                type="checkbox"
+                                checked={billReceiptFirst}
+                                onChange={e => setBillReceiptFirst(e.target.checked)}
+                                style={{ width: 14, height: 14 }}
+                            />
+                            Apply payment to this receipt first
+                        </label>
                     </div>
 
                     <button

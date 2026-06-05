@@ -10,7 +10,7 @@ import { BillHistoryTab } from './components/BillHistoryTab';
 import { CustomerTab } from './components/CustomerTab';
 import { Toast } from './components/Toast';
 import { PrintTemplate } from './components/PrintTemplate';
-import { InventoryItem, Bill, BillItem, BillRow, Customer } from './types';
+import { InventoryItem, Bill, BillItem, BillRow, Customer, CustomerBillingInfo, ProcessPaymentPayload, BillingItemPayload } from './types';
 import { INITIAL_CATALOG } from './constants';
 
 const createEmptyServiceItem = (): BillItem => ({
@@ -95,6 +95,11 @@ export default function App() {
   const [producedBill, setProducedBill] = useState<Bill | null>(null);
   const [sessions, setSessions] = useState<Record<string, Record<string, { total: number; completed: number }>>>({});
 
+  const [paymentAmount, setPaymentAmount] = useState('');
+  const [billReceiptFirst, setBillReceiptFirst] = useState(false);
+  const [customerBillingInfo, setCustomerBillingInfo] = useState<CustomerBillingInfo | null>(null);
+  const [nextReceiptId, setNextReceiptId] = useState<string | null>(null);
+
   const printRef = useRef<HTMLDivElement>(null);
 
   const parseAmountField = (value?: string) => {
@@ -133,6 +138,22 @@ export default function App() {
       if (resp && resp.success) {
         setSessions((resp.data as Record<string, Record<string, { total: number; completed: number }>>) || {});
       }
+    }
+  }, []);
+
+  const loadCustomerInfo = useCallback(async (customerId: string) => {
+    try {
+      const result = await window.electronAPI.billingGetCustomerInfo(customerId);
+      if (result.success && result.data) {
+        setCustomerBillingInfo(result.data);
+        setNextReceiptId(result.data.next_receipt_id);
+      } else {
+        setCustomerBillingInfo(null);
+        setNextReceiptId(null);
+      }
+    } catch {
+      setCustomerBillingInfo(null);
+      setNextReceiptId(null);
     }
   }, []);
 
@@ -270,9 +291,22 @@ export default function App() {
       await fetchInventory();
       await fetchNextBillId();
       await fetchSessions();
+      if (window.electronAPI?.billingInit) {
+        await window.electronAPI.billingInit();
+      }
     };
     init();
   }, [fetchInventory, fetchNextBillId, fetchSessions]);
+
+  useEffect(() => {
+    const normalizedPhone = clientPhone.replace(/\D/g, '');
+    if (normalizedPhone.length === 10 && clientName.trim()) {
+      loadCustomerInfo(normalizeCustomerKey(normalizedPhone, clientName));
+    } else {
+      setCustomerBillingInfo(null);
+      setNextReceiptId(null);
+    }
+  }, [clientPhone, clientName, loadCustomerInfo]);
 
   useEffect(() => {
     if (activeTab === 'history' || activeTab === 'customers') fetchHistory();
@@ -324,7 +358,57 @@ export default function App() {
     setServiceItems(rServices.length > 0 ? rServices : [createEmptyServiceItem()]);
   };
 
-  const handleSaveAndPrint = async () => {
+  const buildBillingItems = (): BillingItemPayload[] => {
+    const items: BillingItemPayload[] = [];
+
+    for (const item of serviceItems) {
+      if (!item.description.trim()) continue;
+      const total = Math.max(1, Number(item.totalSittings || 1));
+      const visit = Math.max(1, Number(item.completedSittings || 1));
+      const qty = Number(item.quantity || 1);
+      const fullPrice = Number(item.price || 0);
+      const discPct = Number(item.discount || 0);
+      const isFullPay = (item.paymentMode || 'per_sitting') === 'full';
+      const unitPrice = isFullPay ? fullPrice : (total > 0 ? fullPrice / total : fullPrice);
+      const lineQty = isFullPay ? qty : visit * qty;
+      const unitDiscount = Math.round((unitPrice * discPct / 100 + Number.EPSILON) * 100) / 100;
+      items.push({
+        catalogId: item.catalogId || '',
+        description: item.description.trim(),
+        type: 'SERVICE',
+        price: Math.round((unitPrice + Number.EPSILON) * 100) / 100,
+        discount: unitDiscount,
+        gstRate: 0,
+        sacHsnCode: item.sacHsnCode || '',
+        unit: item.unit || '',
+        qty: lineQty,
+      });
+    }
+
+    for (const item of productItems) {
+      if (!item.description.trim()) continue;
+      const unitPrice = Number(item.price || 0);
+      const qty = Number(item.quantity || 1);
+      const discPct = Number(item.discount || 0);
+      const unitDiscount = Math.round((unitPrice * discPct / 100 + Number.EPSILON) * 100) / 100;
+      const itemGstRate = applyGST ? (Number(item.gst || 0) || gstRate) : 0;
+      items.push({
+        catalogId: item.catalogId || '',
+        description: item.description.trim(),
+        type: 'PRODUCT',
+        price: Math.round((unitPrice + Number.EPSILON) * 100) / 100,
+        discount: unitDiscount,
+        gstRate: itemGstRate,
+        sacHsnCode: item.sacHsnCode || '',
+        unit: item.unit || '',
+        qty,
+      });
+    }
+
+    return items;
+  };
+
+  const handleProcessPayment = async () => {
     const normalizedPhone = clientPhone.replace(/\D/g, '');
     if (normalizedPhone.length !== 10) {
       showToast('A valid 10-digit phone number is required', 'error');
@@ -335,8 +419,15 @@ export default function App() {
       return;
     }
 
+    const paymentVal = paymentAmount === '' ? null : Number(paymentAmount);
+    const billingItems = buildBillingItems();
+
+    if (billingItems.length === 0 && paymentVal === null) {
+      showToast('Please add at least one item or enter a payment amount', 'error');
+      return;
+    }
+
     const clientKey = normalizeCustomerKey(normalizedPhone, clientName);
-    console.log('CURRENT BILL ID:', currentBillId);
 
     for (const item of serviceItems) {
       const serviceKey = item.description.trim();
@@ -357,195 +448,66 @@ export default function App() {
       }
     }
 
-    
-    
-
-    const adjustedServiceItems = serviceItems.map(item => {
-      const total = Math.max(1, Number(item.totalSittings || 1));
-      const visit = Math.max(1, Number(item.completedSittings || 1));
-      const qty = Number(item.quantity || 1);
-      const price = Number(item.price || 0);
-      const discountPercent = Number(item.discount || 0);
-      const paymentMode = item.paymentMode || 'per_sitting';
-
-      let baseAmount = price * qty;
-      let descSuffix = ` (Full Payment)`;
-
-      if (paymentMode !== 'full') {
-        baseAmount = (price / total) * visit * qty;
-        descSuffix = ` (${visit}/${total})`;
-      }
-
-      const discVal = (baseAmount * discountPercent) / 100;
-
-      return {
-        ...item,
-        description: `${item.description}${descSuffix}`,
-        amount: Math.max(0, baseAmount - discVal)
-      };
-    });
-
-    const productItemsWithDiscountApplied = productItems.map(item => {
-      const qty = Number(item.quantity || 1);
-      const price = Number(item.price || 0);
-      const discountPercent = Number(item.discount || 0);
-      const baseAmount = price * qty;
-      const discVal = (baseAmount * discountPercent) / 100;
-
-      return { 
-        ...item, 
-        amount: Math.max(0, baseAmount - discVal) 
-      };
-    });
-
-    const allItems = [...productItemsWithDiscountApplied, ...adjustedServiceItems];
-    const validItems = allItems.filter(i => i.description.trim() !== '');
-    if (validItems.length === 0) {
-      showToast('Please add at least one item', 'error');
-      return;
-    }
-
-    const roundToTwo = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
-    const toMoneyString = (value: number) => roundToTwo(value).toFixed(2);
-
-    const getBaseService = (i: BillItem) => {
-        const total = Math.max(1, Number(i.totalSittings || 1));
-        const visit = Math.max(1, Number(i.completedSittings || 1));
-        const p = Number(i.price || 0);
-        const q = Number(i.quantity || 1);
-        if ((i.paymentMode || 'per_sitting') === 'full') return p * q;
-        return (p / total) * visit * q;
-    };
-    
-    // We already have the actual amounts applied, so we can calculate the discount amount.
-    // wait, we can just calculate it from the pre-discount base amounts!
-    const serviceTotalDiscount = serviceItems.reduce((s, i) => s + (getBaseService(i) * Number(i.discount || 0) / 100), 0);
-    const productTotalDiscount = productItems.reduce((s, i) => s + ((Number(i.price || 0) * Number(i.quantity || 1)) * Number(i.discount || 0) / 100), 0);
-    const totalDiscountAmount = roundToTwo(serviceTotalDiscount + productTotalDiscount);
-
-    // Amounts are already post-discount
-    const serviceSubTotalPostDiscount = adjustedServiceItems.reduce((s, i) => s + i.amount, 0);
-    const productSubTotalPostDiscount = productItemsWithDiscountApplied.reduce((s, i) => s + i.amount, 0);
-    const serviceSubTotalPreDiscount = serviceSubTotalPostDiscount + serviceTotalDiscount;
-    const productSubTotalPreDiscount = productSubTotalPostDiscount + productTotalDiscount;
-    const combinedSubTotalPreDiscount = serviceSubTotalPreDiscount + productSubTotalPreDiscount;
-
-    const taxableAmountVal = roundToTwo(serviceSubTotalPostDiscount + productSubTotalPostDiscount);
-    const cgstAmount = roundToTwo(applyGST ? taxableAmountVal * (gstRate / 100) : 0);
-    const sgstAmount = roundToTwo(applyGST ? taxableAmountVal * (gstRate / 100) : 0);
-    const gstTotalAmount = roundToTwo(cgstAmount + sgstAmount);
-    const grandTotalVal = roundToTwo(taxableAmountVal + gstTotalAmount);
-
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, '0');
-    let safeId = parseInt(String(currentBillId), 10);
-    if (!safeId || Number.isNaN(safeId) || safeId > 9999) {
-      safeId = 1;
-    }
-    const formattedId = `INV-${year}-${month}-${String(safeId).padStart(3, '0')}`;
-
-    const grossForItem = (vi: BillItem) => {
-      if (vi.type === 'Product' || vi.category === 'Product') {
-        return Number(vi.price || 0) * Number(vi.quantity || 1);
-      }
-      return getBaseService(vi);
-    };
-
-    const billData: Bill = {
-      id: formattedId,
-      date: today.toISOString(),
-      clientName, clientPhone, clientAddress,
-      serviceTotal: toMoneyString(serviceSubTotalPreDiscount),
-      productTotal: toMoneyString(productSubTotalPreDiscount),
-      subTotal: toMoneyString(combinedSubTotalPreDiscount),
-      discount: toMoneyString(totalDiscountAmount),
-      taxableAmount: toMoneyString(taxableAmountVal),
-      cgst: toMoneyString(cgstAmount),
-      sgst: toMoneyString(sgstAmount),
-      gstTotal: toMoneyString(gstTotalAmount),
-      total: toMoneyString(grandTotalVal),
-      gstRate: String(applyGST ? gstRate : 0),
-      placeOfSupply,
-      serviceDiscount: toMoneyString(serviceTotalDiscount),
-      productDiscount: toMoneyString(productTotalDiscount),
-      items: validItems.map(vi => {
-        const gross = grossForItem(vi);
-        const isProduct = vi.type === 'Product' || vi.category === 'Product';
-        return {
-          description: vi.description,
-          price: String(vi.price),
-          quantity: String(vi.quantity),
-          amount: String(vi.amount),
-          grossAmount: String(Math.round(gross)),
-          discountAmount: String(Math.round(Math.max(0, gross - Number(vi.amount || 0)))),
-          totalSittings: isProduct ? undefined : String(Math.max(1, Number(vi.totalSittings || 1))),
-          sacHsnCode: vi.sacHsnCode || '',
-          unit: vi.unit || ''
-        };
-      })
+    const payload: ProcessPaymentPayload = {
+      customerId: clientKey,
+      address: clientAddress,
+      stateCode: placeOfSupply,
+      items: billingItems,
+      payment: paymentVal,
+      billReceiptFirst,
     };
 
     try {
-      if (window.electronAPI) {
-        const response = await window.electronAPI.saveBill(billData);
-        if (response.success) {
-          showToast('Bill produced and saved!', 'success');
-          await fetchInventory();
+      const result = await window.electronAPI.billingProcessPayment(payload);
+      if (!result.success) {
+        showToast(result.error || 'Failed to process payment', 'error');
+        return;
+      }
 
-          if (clientKey) {
-            const nextSessions: Record<string, Record<string, { total: number; completed: number }>> = JSON.parse(
-              JSON.stringify(sessions || {})
-            );
+      showToast(`Saved — Receipt ${result.receiptId} (${result.mode})`, 'success');
 
-            serviceItems.forEach(item => {
-              const serviceKey = item.description.trim();
-              if (!serviceKey) {
-                return;
-              }
-
-              const total = Math.max(1, Number(item.totalSittings || 1));
-              const visit = Math.max(1, Number(item.completedSittings || 1));
-
-              if (!nextSessions[clientKey]) {
-                nextSessions[clientKey] = {};
-              }
-
-              if (!nextSessions[clientKey][serviceKey]) {
-                nextSessions[clientKey][serviceKey] = { total, completed: 0 };
-              }
-
-              nextSessions[clientKey][serviceKey].total = total;
-              const updatedCompleted = Number(nextSessions[clientKey][serviceKey].completed || 0) + visit;
-              nextSessions[clientKey][serviceKey].completed = Math.min(total, updatedCompleted);
-            });
-
-            setSessions(nextSessions);
-
-            if (window.electronAPI?.saveSessions) {
-              await window.electronAPI.saveSessions(nextSessions);
-            }
-          }
-        } else {
-          showToast('Failed to save bill: ' + response.error, 'error');
-          return;
-        }
-
-        setProducedBill(billData);
-
-        if (typeof window.electronAPI.savePdf === 'function') {
-          setTimeout(async () => {
-            try {
-              await window.electronAPI.savePdf(formattedId);
-            } catch (pdfError) {
-              console.error('Failed to save PDF:', pdfError);
-            }
-          }, 500);
+      if (billingItems.length > 0) {
+        const nextSessions: Record<string, Record<string, { total: number; completed: number }>> = JSON.parse(
+          JSON.stringify(sessions || {})
+        );
+        serviceItems.forEach(item => {
+          const serviceKey = item.description.trim();
+          if (!serviceKey) return;
+          const total = Math.max(1, Number(item.totalSittings || 1));
+          const visit = Math.max(1, Number(item.completedSittings || 1));
+          if (!nextSessions[clientKey]) nextSessions[clientKey] = {};
+          if (!nextSessions[clientKey][serviceKey]) nextSessions[clientKey][serviceKey] = { total, completed: 0 };
+          nextSessions[clientKey][serviceKey].total = total;
+          const updated = Number(nextSessions[clientKey][serviceKey].completed || 0) + visit;
+          nextSessions[clientKey][serviceKey].completed = Math.min(total, updated);
+        });
+        setSessions(nextSessions);
+        if (window.electronAPI?.saveSessions) {
+          await window.electronAPI.saveSessions(nextSessions);
         }
       }
 
-    } catch (error) {
-      showToast('An error occurred during production', 'error');
+      await loadCustomerInfo(clientKey);
+      setPaymentAmount('');
+    } catch {
+      showToast('An error occurred during processing', 'error');
+    }
+  };
+
+  const handleStartNewSeries = async () => {
+    const normalizedPhone = clientPhone.replace(/\D/g, '');
+    if (normalizedPhone.length !== 10 || !clientName.trim()) return;
+    const clientKey = normalizeCustomerKey(normalizedPhone, clientName);
+    try {
+      const result = await window.electronAPI.billingStartNewSeries(clientKey);
+      if (result.success) {
+        showToast('Started new receipt series', 'success');
+        await loadCustomerInfo(clientKey);
+      } else {
+        showToast(result.error || 'Failed to start new series', 'error');
+      }
+    } catch {
+      showToast('Error starting new series', 'error');
     }
   };
 
@@ -557,6 +519,10 @@ export default function App() {
     setProductItems([]);
     setServiceItems([createEmptyServiceItem()]);
     setProducedBill(null);
+    setPaymentAmount('');
+    setBillReceiptFirst(false);
+    setCustomerBillingInfo(null);
+    setNextReceiptId(null);
     fetchNextBillId();
   };
 
@@ -659,9 +625,13 @@ export default function App() {
               serviceItems={serviceItems} setServiceItems={setServiceItems}
               applyGST={applyGST} setApplyGST={setApplyGST}
               gstRate={gstRate} setGstRate={setGstRate}
+              paymentAmount={paymentAmount} setPaymentAmount={setPaymentAmount}
+              billReceiptFirst={billReceiptFirst} setBillReceiptFirst={setBillReceiptFirst}
               inventory={inventory}
-              handleProduceBill={handleSaveAndPrint}
-              currentBillId={currentBillId}
+              handleProduceBill={handleProcessPayment}
+              handleStartNewSeries={handleStartNewSeries}
+              nextReceiptId={nextReceiptId}
+              customerBillingInfo={customerBillingInfo}
               sessions={sessions}
               customers={customers}
             />

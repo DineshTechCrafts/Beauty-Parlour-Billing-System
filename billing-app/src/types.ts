@@ -111,6 +111,50 @@ export interface InventoryItem {
     mrp?: number;
 }
 
+// ── Billing system (billing.json) ──────────────────────────────────────────
+
+export interface BillingItemPayload {
+  catalogId: string;
+  description: string;
+  type: 'PRODUCT' | 'SERVICE';
+  price: number;       // per-unit pre-tax price (rupees)
+  discount: number;    // per-unit discount in rupees (not %)
+  gstRate: number;     // percent
+  sacHsnCode: string;
+  unit: string;
+  qty: number;         // number of unit-rows to expand
+}
+
+export interface ProcessPaymentPayload {
+  customerId: string;  // phone::name
+  address: string;
+  stateCode: string;
+  items: BillingItemPayload[];
+  payment: number | null;
+  billReceiptFirst: boolean;
+}
+
+export interface CustomerBillingInfo {
+  outstanding: number;
+  advance_credit: number;
+  current_receipt_base: number | null;
+  next_receipt_id: string | null;
+  address: string;
+  state_code: string;
+}
+
+export interface ProcessPaymentResult {
+  success: boolean;
+  receiptId?: string;
+  mode?: string;
+  gstSeq?: number | null;
+  outstanding?: number;
+  advanceCredit?: number;
+  error?: string;
+}
+
+// ── Extended ElectronAPI ────────────────────────────────────────────────────
+
 declare global {
   interface Window {
     electronAPI: {
@@ -122,6 +166,11 @@ declare global {
       getNextBillId: () => Promise<any>;
       getSessions: () => Promise<any>;
       saveSessions: (data: any) => Promise<any>;
+      // Billing system
+      billingInit: () => Promise<{ success: boolean; error?: string }>;
+      billingProcessPayment: (payload: ProcessPaymentPayload) => Promise<ProcessPaymentResult>;
+      billingStartNewSeries: (customerId: string) => Promise<{ success: boolean; newBase?: number; error?: string }>;
+      billingGetCustomerInfo: (customerId: string) => Promise<{ success: boolean; data?: CustomerBillingInfo; error?: string }>;
     };
   }
 }
