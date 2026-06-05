@@ -258,16 +258,41 @@ export default function App() {
   };
 
   const fetchHistory = useCallback(async () => {
+    let csvCustomers: Customer[] = [];
     if (window.electronAPI?.getBills) {
       const resp = await window.electronAPI.getBills();
       if (resp && resp.data) {
         const parsedBills = parseAndSetBills(resp.data);
-        setCustomers(buildCustomerMap(parsedBills));
+        csvCustomers = buildCustomerMap(parsedBills);
       } else {
         setHistoryBills([]);
-        setCustomers([]);
       }
     }
+
+    // Merge in customers who exist only in billing.json (never generated an invoice to bills.csv)
+    if (window.electronAPI?.billingGetCustomerList) {
+      try {
+        const billingResp = await window.electronAPI.billingGetCustomerList();
+        if (billingResp.success && billingResp.customers) {
+          const csvKeys = new Set(csvCustomers.map(c => c.key));
+          const billingOnly: Customer[] = billingResp.customers
+            .filter(c => !csvKeys.has(c.customerId))
+            .map(c => ({
+              key: c.customerId,
+              name: c.name.replace(/\b\w/g, ch => ch.toUpperCase()),
+              phone: c.phone,
+              bills: [],
+              totalSpent: c.totalSpent,
+              visitCount: c.visitCount,
+            }));
+          setCustomers([...csvCustomers, ...billingOnly]);
+          return;
+        }
+      } catch {
+        // fall through to csv-only list
+      }
+    }
+    setCustomers(csvCustomers);
   }, []);
 
   const fetchNextBillId = useCallback(async () => {
@@ -309,7 +334,7 @@ export default function App() {
   }, [clientPhone, clientName, loadCustomerInfo]);
 
   useEffect(() => {
-    if (activeTab === 'history' || activeTab === 'customers') fetchHistory();
+    if (activeTab === 'history' || activeTab === 'customers' || activeTab === 'billing') fetchHistory();
     if (activeTab === 'billing') fetchNextBillId();
   }, [activeTab, fetchHistory, fetchNextBillId]);
 
@@ -445,7 +470,7 @@ export default function App() {
 
       showToast(`Saved — Receipt ${result.receiptId} (${result.mode})`, 'success');
 
-      await loadCustomerInfo(clientKey);
+      await Promise.all([loadCustomerInfo(clientKey), fetchHistory()]);
       setPaymentAmount('');
     } catch {
       showToast('An error occurred during processing', 'error');
@@ -638,7 +663,7 @@ export default function App() {
           {activeTab === 'products' && <ProductsTab inventory={inventory} />}
           {activeTab === 'inventory' && <InventoryTab inventory={inventory} saveInventory={saveInventory} />}
           {activeTab === 'history' && <BillHistoryTab bills={historyBills} onEdit={onEditBill} />}
-          {activeTab === 'customers' && <CustomerTab customers={customers} sessions={sessions} />}
+          {activeTab === 'customers' && <CustomerTab customers={customers} sessions={sessions} isActive={activeTab === 'customers'} />}
         </div>
       </main>
 

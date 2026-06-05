@@ -143,6 +143,24 @@ export interface CustomerBillingInfo {
   state_code: string;
 }
 
+export interface ReceiptQueueItem {
+  line_id: string;
+  receipt_id: string;
+  product_code: string;
+  item_description: string;
+  taxed_total: number;
+  status: 'PENDING' | 'INVOICED' | 'CANCELLED';
+  date: string;
+}
+
+export interface CustomerQueueResult {
+  success: boolean;
+  items?: ReceiptQueueItem[];
+  outstanding?: number;
+  advance_credit?: number;
+  error?: string;
+}
+
 export interface ProcessPaymentResult {
   success: boolean;
   receiptId?: string;
@@ -171,6 +189,10 @@ declare global {
       billingProcessPayment: (payload: ProcessPaymentPayload) => Promise<ProcessPaymentResult>;
       billingStartNewSeries: (customerId: string) => Promise<{ success: boolean; newBase?: number; error?: string }>;
       billingGetCustomerInfo: (customerId: string) => Promise<{ success: boolean; data?: CustomerBillingInfo; error?: string }>;
+      billingGetCustomerQueue: (customerId: string) => Promise<CustomerQueueResult>;
+      billingGetCustomerList: () => Promise<{ success: boolean; customers?: Array<{ customerId: string; phone: string; name: string; visitCount: number; totalSpent: number; lastReceiptDate: string | null }>; error?: string }>;
+      billingCancelPendingItems: (payload: { customerId: string; lineIds: string[] }) => Promise<{ success: boolean; cancelled?: number; outstanding?: number; advance_credit?: number; error?: string }>;
+      billingRefundCredit: (payload: { customerId: string; amount: number; note?: string }) => Promise<{ success: boolean; refunded?: number; advance_credit?: number; error?: string }>;
     };
   }
 }

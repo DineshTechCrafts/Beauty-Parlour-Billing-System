@@ -626,7 +626,8 @@ const getAdvanceCredit = (billing, customerId) => {
     const ledger = billing.credit_ledger.filter(e => e.customer_id === customerId);
     const advances = ledger.filter(e => e.type === 'ADVANCE_CREDIT').reduce((s, e) => s + e.amount, 0);
     const used = ledger.filter(e => e.type === 'CREDIT_USED').reduce((s, e) => s + e.amount, 0);
-    return roundMoney(advances - used);
+    const refunded = ledger.filter(e => e.type === 'REFUND').reduce((s, e) => s + e.amount, 0);
+    return roundMoney(advances - used - refunded);
 };
 
 // Update _billing + _customer cache in sessions.json (Section 4.7)
@@ -1037,6 +1038,99 @@ ipcMain.handle('billing:start-new-series', async (event, customerId) => {
     }
 });
 
+ipcMain.handle('billing:cancel-pending-items', async (event, { customerId, lineIds }) => {
+    try {
+        const dataDir = resolveDataDir();
+        const billing = loadBilling(dataDir);
+        if (!Array.isArray(lineIds) || lineIds.length === 0) {
+            return { success: false, error: 'No line IDs provided' };
+        }
+        const idSet = new Set(lineIds.map(String));
+        let cancelled = 0;
+        for (const item of billing.receipt_items) {
+            if (item.customer_id === customerId && idSet.has(String(item.line_id)) && item.status === 'PENDING') {
+                item.status = 'CANCELLED';
+                cancelled++;
+            }
+        }
+        saveBilling(dataDir, billing);
+        updateSessionCache(dataDir, customerId, billing, null);
+        return {
+            success: true,
+            cancelled,
+            outstanding: roundMoney(getOutstanding(billing, customerId)),
+            advance_credit: getAdvanceCredit(billing, customerId)
+        };
+    } catch (error) {
+        console.error('billing:cancel-pending-items failed:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle('billing:refund-credit', async (event, { customerId, amount, note }) => {
+    try {
+        const dataDir = resolveDataDir();
+        const billing = loadBilling(dataDir);
+        const refundAmt = roundMoney(Number(amount));
+        if (!refundAmt || refundAmt <= 0) {
+            return { success: false, error: 'Refund amount must be greater than zero' };
+        }
+        const available = getAdvanceCredit(billing, customerId);
+        if (refundAmt > available) {
+            return { success: false, error: `Cannot refund ₹${refundAmt} — only ₹${available} available` };
+        }
+        const nextTxnId = billing.credit_ledger.length > 0
+            ? Math.max(...billing.credit_ledger.map(e => e.txn_id)) + 1 : 1;
+        const today = new Date().toISOString().slice(0, 10);
+        billing.credit_ledger.push({
+            txn_id: nextTxnId,
+            customer_id: customerId,
+            type: 'REFUND',
+            amount: refundAmt,
+            ref_id: note || 'manual-refund',
+            date: today
+        });
+        saveBilling(dataDir, billing);
+        updateSessionCache(dataDir, customerId, billing, null);
+        return {
+            success: true,
+            refunded: refundAmt,
+            advance_credit: getAdvanceCredit(billing, customerId)
+        };
+    } catch (error) {
+        console.error('billing:refund-credit failed:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle('billing:get-customer-queue', async (event, customerId) => {
+    try {
+        const dataDir = resolveDataDir();
+        const billing = loadBilling(dataDir);
+        const items = billing.receipt_items
+            .filter(item => item.customer_id === customerId)
+            .map(item => ({
+                line_id: item.line_id,
+                receipt_id: item.receipt_id,
+                product_code: item.product_code,
+                item_description: item.item_description,
+                taxed_total: item.taxed_total,
+                status: item.status,
+                date: item.date
+            }))
+            .sort((a, b) => String(a.line_id).localeCompare(String(b.line_id)));
+        return {
+            success: true,
+            items,
+            outstanding: roundMoney(getOutstanding(billing, customerId)),
+            advance_credit: getAdvanceCredit(billing, customerId)
+        };
+    } catch (error) {
+        console.error('billing:get-customer-queue failed:', error);
+        return { success: false, error: error.message };
+    }
+});
+
 ipcMain.handle('billing:get-customer-info', async (event, customerId) => {
     try {
         const dataDir = resolveDataDir();
@@ -1055,6 +1149,35 @@ ipcMain.handle('billing:get-customer-info', async (event, customerId) => {
         return { success: true, data };
     } catch (error) {
         console.error('billing:get-customer-info failed:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle('billing:get-customer-list', async () => {
+    try {
+        const dataDir = resolveDataDir();
+        const billing = loadBilling(dataDir);
+        const customers = Object.keys(billing.customer_series).map(customerId => {
+            const sepIdx = customerId.indexOf('::');
+            const phone = sepIdx >= 0 ? customerId.slice(0, sepIdx) : customerId;
+            const name = sepIdx >= 0 ? customerId.slice(sepIdx + 2) : '';
+            const receipts = billing.receipts.filter(r => r.customer_id === customerId);
+            const invoicedItems = billing.receipt_items.filter(i => i.customer_id === customerId && i.status === 'INVOICED');
+            const lastReceipt = receipts.length > 0
+                ? receipts.reduce((latest, r) => r.receipt_date > latest ? r.receipt_date : latest, receipts[0].receipt_date)
+                : null;
+            return {
+                customerId,
+                phone,
+                name,
+                visitCount: receipts.length,
+                totalSpent: roundMoney(invoicedItems.reduce((s, i) => s + i.taxed_total, 0)),
+                lastReceiptDate: lastReceipt
+            };
+        });
+        return { success: true, customers };
+    } catch (error) {
+        console.error('billing:get-customer-list failed:', error);
         return { success: false, error: error.message };
     }
 });
