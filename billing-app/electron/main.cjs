@@ -1182,6 +1182,17 @@ ipcMain.handle('billing:get-customer-list', async () => {
     }
 });
 
+ipcMain.handle('billing:get-tax-invoices', async () => {
+    try {
+        const dataDir = resolveDataDir();
+        const billing = loadBilling(dataDir);
+        return { success: true, data: billing.tax_invoices || [] };
+    } catch (error) {
+        console.error('billing:get-tax-invoices failed:', error);
+        return { success: false, error: error.message };
+    }
+});
+
 // ── Modify existing sessions handlers to preserve _-prefixed keys ───────────
 
 // Save PDF

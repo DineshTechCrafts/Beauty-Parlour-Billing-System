@@ -18,4 +18,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
     billingCancelPendingItems: (payload) => ipcRenderer.invoke('billing:cancel-pending-items', payload),
     billingRefundCredit: (payload) => ipcRenderer.invoke('billing:refund-credit', payload),
     billingGetCustomerList: () => ipcRenderer.invoke('billing:get-customer-list'),
+    billingGetTaxInvoices: () => ipcRenderer.invoke('billing:get-tax-invoices'),
 });

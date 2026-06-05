@@ -111,6 +111,41 @@ export interface InventoryItem {
     mrp?: number;
 }
 
+export interface TaxInvoice {
+  gst_seq: number;
+  receipt_id: string;
+  date: string;
+  client_name: string;
+  client_phone: string;
+  client_address: string;
+  sub_total: number;
+  discount: number;
+  cgst: number;
+  sgst: number;
+  igst: number;
+  gst_total: number;
+  taxable_amount: number;
+  service_total: number;
+  product_total: number;
+  total: number;
+  gst_rate: number;
+  billing_mode: string;
+  place_of_supply: string;
+  buyer_gstin: string;
+  buyer_legal_name: string;
+  buyer_state_code: string;
+  reverse_charge: string;
+  invoice_type: string;
+  item_description: string;
+  price: number;
+  quantity: number;
+  amount: number;
+  sac_hsn_code: string;
+  unit: string;
+  source_receipt_id: string;
+  source_line_id: string;
+}
+
 // ── Billing system (billing.json) ──────────────────────────────────────────
 
 export interface BillingItemPayload {
@@ -193,6 +228,7 @@ declare global {
       billingGetCustomerList: () => Promise<{ success: boolean; customers?: Array<{ customerId: string; phone: string; name: string; visitCount: number; totalSpent: number; lastReceiptDate: string | null }>; error?: string }>;
       billingCancelPendingItems: (payload: { customerId: string; lineIds: string[] }) => Promise<{ success: boolean; cancelled?: number; outstanding?: number; advance_credit?: number; error?: string }>;
       billingRefundCredit: (payload: { customerId: string; amount: number; note?: string }) => Promise<{ success: boolean; refunded?: number; advance_credit?: number; error?: string }>;
+      billingGetTaxInvoices: () => Promise<{ success: boolean; data?: TaxInvoice[]; error?: string }>;
     };
   }
 }

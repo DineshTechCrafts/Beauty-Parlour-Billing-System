@@ -8,6 +8,7 @@ import { ProductsTab } from './components/ProductsTab';
 import { InventoryTab } from './components/InventoryTab';
 import { BillHistoryTab } from './components/BillHistoryTab';
 import { CustomerTab } from './components/CustomerTab';
+import { TaxReportTab } from './components/TaxReportTab';
 import { Toast } from './components/Toast';
 import { PrintTemplate } from './components/PrintTemplate';
 import { InventoryItem, Bill, BillItem, BillRow, Customer, CustomerBillingInfo, ProcessPaymentPayload, BillingItemPayload } from './types';
@@ -587,6 +588,7 @@ export default function App() {
               {activeTab === 'inventory' && 'Inventory Records'}
               {activeTab === 'history' && 'Invoice Archive'}
               {activeTab === 'customers' && 'Customer Intelligence'}
+              {activeTab === 'taxreport' && 'Tax Report'}
             </h1>
             <p>
               {activeTab === 'billing' && 'Generate professional clinic invoices and manage one-time transactions.'}
@@ -595,6 +597,7 @@ export default function App() {
               {activeTab === 'inventory' && 'Maintain retail stock levels and category organization.'}
               {activeTab === 'history' && 'Access past records and track business performance.'}
               {activeTab === 'customers' && 'Search loyalty trends, review visit history, and audit session progress.'}
+              {activeTab === 'taxreport' && 'Filter GST invoices by month and year, then export to Excel.'}
             </p>
           </header>
 
@@ -664,6 +667,7 @@ export default function App() {
           {activeTab === 'inventory' && <InventoryTab inventory={inventory} saveInventory={saveInventory} />}
           {activeTab === 'history' && <BillHistoryTab bills={historyBills} onEdit={onEditBill} />}
           {activeTab === 'customers' && <CustomerTab customers={customers} sessions={sessions} isActive={activeTab === 'customers'} />}
+          {activeTab === 'taxreport' && <TaxReportTab isActive={activeTab === 'taxreport'} />}
         </div>
       </main>
 

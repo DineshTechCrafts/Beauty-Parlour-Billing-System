@@ -15,6 +15,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
         { id: 'inventory', label: 'Catalog Records', icon: <Icons.Package /> },
         { id: 'history', label: 'Invoice Archive', icon: <Icons.History /> },
         { id: 'customers', label: 'Customers', icon: <Icons.Users /> },
+        { id: 'taxreport', label: 'Tax Report', icon: <Icons.BarChart /> },
     ];
 
     return (
