@@ -364,13 +364,11 @@ export default function App() {
     for (const item of serviceItems) {
       if (!item.description.trim()) continue;
       const total = Math.max(1, Number(item.totalSittings || 1));
-      const visit = Math.max(1, Number(item.completedSittings || 1));
       const qty = Number(item.quantity || 1);
       const fullPrice = Number(item.price || 0);
       const discPct = Number(item.discount || 0);
-      const isFullPay = (item.paymentMode || 'per_sitting') === 'full';
-      const unitPrice = isFullPay ? fullPrice : (total > 0 ? fullPrice / total : fullPrice);
-      const lineQty = isFullPay ? qty : visit * qty;
+      const unitPrice = total > 0 ? fullPrice / total : fullPrice;
+      const lineQty = total * qty;
       const unitDiscount = Math.round((unitPrice * discPct / 100 + Number.EPSILON) * 100) / 100;
       items.push({
         catalogId: item.catalogId || '',
@@ -429,25 +427,6 @@ export default function App() {
 
     const clientKey = normalizeCustomerKey(normalizedPhone, clientName);
 
-    for (const item of serviceItems) {
-      const serviceKey = item.description.trim();
-      if (!serviceKey) {
-        continue;
-      }
-
-      const total = Math.max(1, Number(item.totalSittings || 1));
-      const visit = Math.max(1, Number(item.completedSittings || 1));
-      const existing = sessions?.[clientKey]?.[serviceKey];
-
-      if (existing) {
-        const remaining = Math.max(0, Number(existing.total || total) - Number(existing.completed || 0));
-        if (visit > remaining) {
-          showToast(`Only ${remaining} sittings left for ${serviceKey}`, 'error');
-          return;
-        }
-      }
-    }
-
     const payload: ProcessPaymentPayload = {
       customerId: clientKey,
       address: clientAddress,
@@ -465,27 +444,6 @@ export default function App() {
       }
 
       showToast(`Saved — Receipt ${result.receiptId} (${result.mode})`, 'success');
-
-      if (billingItems.length > 0) {
-        const nextSessions: Record<string, Record<string, { total: number; completed: number }>> = JSON.parse(
-          JSON.stringify(sessions || {})
-        );
-        serviceItems.forEach(item => {
-          const serviceKey = item.description.trim();
-          if (!serviceKey) return;
-          const total = Math.max(1, Number(item.totalSittings || 1));
-          const visit = Math.max(1, Number(item.completedSittings || 1));
-          if (!nextSessions[clientKey]) nextSessions[clientKey] = {};
-          if (!nextSessions[clientKey][serviceKey]) nextSessions[clientKey][serviceKey] = { total, completed: 0 };
-          nextSessions[clientKey][serviceKey].total = total;
-          const updated = Number(nextSessions[clientKey][serviceKey].completed || 0) + visit;
-          nextSessions[clientKey][serviceKey].completed = Math.min(total, updated);
-        });
-        setSessions(nextSessions);
-        if (window.electronAPI?.saveSessions) {
-          await window.electronAPI.saveSessions(nextSessions);
-        }
-      }
 
       await loadCustomerInfo(clientKey);
       setPaymentAmount('');
@@ -632,7 +590,6 @@ export default function App() {
               handleStartNewSeries={handleStartNewSeries}
               nextReceiptId={nextReceiptId}
               customerBillingInfo={customerBillingInfo}
-              sessions={sessions}
               customers={customers}
             />
           )}

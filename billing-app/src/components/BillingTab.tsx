@@ -196,7 +196,6 @@ interface BillingTabProps {
     handleStartNewSeries: () => void;
     nextReceiptId: string | null;
     customerBillingInfo: CustomerBillingInfo | null;
-    sessions: Record<string, Record<string, { total: number; completed: number }>>;
     customers: Customer[];
 }
 
@@ -209,13 +208,12 @@ const currencyFormatter = new Intl.NumberFormat('en-IN', {
 
 const formatCurrency = (value: number) => currencyFormatter.format(Math.max(0, Number.isFinite(value) ? value : 0));
 
-const clampServiceMeta = (item: BillItem) => {
-    const total = Math.max(1, Number(item.totalSittings || 1));
-    let visit = Math.max(1, Number(item.completedSittings || 1));
-    if (visit > total) {
-        visit = total;
-    }
-    return { total, visit };
+const getServiceTotal = (item: BillItem) => {
+    const price = Number(item.price || 0);
+    const qty = Number(item.quantity || 1);
+    const discPct = Number(item.discount || 0);
+    const base = price * qty;
+    return Math.max(0, base - (base * discPct / 100));
 };
 
 const ComboSelect: React.FC<{
@@ -374,7 +372,7 @@ export const BillingTab: React.FC<BillingTabProps> = ({
     applyGST, setApplyGST, gstRate, setGstRate,
     paymentAmount, setPaymentAmount, billReceiptFirst, setBillReceiptFirst,
     inventory, handleProduceBill, handleStartNewSeries, nextReceiptId, customerBillingInfo,
-    sessions, customers
+    customers
 }) => {
     const [seriesCooldown, setSeriesCooldown] = useState(false);
 
@@ -402,22 +400,17 @@ export const BillingTab: React.FC<BillingTabProps> = ({
     const isPhoneLocked = sanitizedPhone.length !== 10;
 
     const summaryData = useMemo(() => {
-        const getBaseAmount = (item: BillItem, isProduct: boolean) => {
+        const getBaseAmount = (item: BillItem) => {
             const price = Number(item.price || 0);
             const qty = Number(item.quantity || 1);
-            if (isProduct) return price * qty;
-            const { total, visit } = clampServiceMeta(item);
-            if ((item.paymentMode || 'per_sitting') !== 'full') {
-                return (price / total) * visit * qty;
-            }
             return price * qty;
         };
 
-        const servicePreDiscount = serviceItems.reduce((sum, item) => sum + getBaseAmount(item, false), 0);
-        const productPreDiscount = productItems.reduce((sum, item) => sum + getBaseAmount(item, true), 0);
+        const servicePreDiscount = serviceItems.reduce((sum, item) => sum + getBaseAmount(item), 0);
+        const productPreDiscount = productItems.reduce((sum, item) => sum + getBaseAmount(item), 0);
 
-        const serviceDiscountAmount = serviceItems.reduce((sum, item) => sum + (getBaseAmount(item, false) * Number(item.discount || 0) / 100), 0);
-        const productDiscountAmount = productItems.reduce((sum, item) => sum + (getBaseAmount(item, true) * Number(item.discount || 0) / 100), 0);
+        const serviceDiscountAmount = serviceItems.reduce((sum, item) => sum + (getBaseAmount(item) * Number(item.discount || 0) / 100), 0);
+        const productDiscountAmount = productItems.reduce((sum, item) => sum + (getBaseAmount(item) * Number(item.discount || 0) / 100), 0);
         const discount = serviceDiscountAmount + productDiscountAmount;
 
         const serviceSubTotal = serviceItems.reduce((sum, item) => sum + Number(item.amount || 0), 0);
@@ -466,8 +459,6 @@ export const BillingTab: React.FC<BillingTabProps> = ({
                 amount: 0,
                 discount: 0,
                 totalSittings: 1,
-                completedSittings: 1,
-                paymentMode: 'per_sitting',
                 catalogId: '',
                 mode: 'catalog'
             },
@@ -482,18 +473,7 @@ export const BillingTab: React.FC<BillingTabProps> = ({
     };
 
 
-    const computeServiceAmount = (item: BillItem) => {
-        const price = Number(item.price || 0);
-        const qty = Number(item.quantity || 1);
-        const discountPercent = Number(item.discount || 0);
-        const { total, visit } = clampServiceMeta(item);
-        let baseAmount = price * qty;
-        if ((item.paymentMode || 'per_sitting') !== 'full') {
-            baseAmount = (price / total) * visit * qty;
-        }
-        const discountVal = (baseAmount * discountPercent) / 100;
-        return Math.max(0, baseAmount - discountVal);
-    };
+    const computeServiceAmount = (item: BillItem) => getServiceTotal(item);
 
     const updateItem = (id: number, field: string, value: string | number, isProduct: boolean) => {
         const fn = isProduct ? setProductItems : setServiceItems;
@@ -505,7 +485,7 @@ export const BillingTab: React.FC<BillingTabProps> = ({
                     field === 'price' ||
                     field === 'quantity' ||
                     field === 'discount' ||
-                    (!isProduct && (field === 'totalSittings' || field === 'completedSittings' || field === 'paymentMode'))
+                    (!isProduct && field === 'totalSittings')
                 ) {
                     if (!isProduct) {
                         const updatedItem = { ...updated };
@@ -546,12 +526,7 @@ export const BillingTab: React.FC<BillingTabProps> = ({
                 };
                 const withServiceMeta = isProduct
                     ? base
-                    : {
-                        ...base,
-                        totalSittings: Number(catalogItem.totalSittings || item.totalSittings || 1),
-                        completedSittings: 1,
-                        paymentMode: item.paymentMode || 'per_sitting'
-                    };
+                    : { ...base, totalSittings: Number(catalogItem.totalSittings || item.totalSittings || 1) };
                 return {
                     ...withServiceMeta,
                     amount: isProduct
@@ -580,9 +555,7 @@ export const BillingTab: React.FC<BillingTabProps> = ({
             notes: undefined,
             sacHsnCode: undefined,
             unit: undefined,
-            totalSittings: isProduct ? item.totalSittings : 1,
-            completedSittings: isProduct ? item.completedSittings : 1,
-            paymentMode: isProduct ? item.paymentMode : 'per_sitting'
+            totalSittings: isProduct ? item.totalSittings : 1
         } : item));
     };
 
@@ -623,8 +596,7 @@ export const BillingTab: React.FC<BillingTabProps> = ({
                                     <th className="col-price">Price (₹)</th>
                                     <th className="col-qty">Qty</th>
                                     <th className="col-disc">Disc %</th>
-                                    <th className="col-sessions">Sessions (Visits/Plan)</th>
-                                    <th className="col-payment">Payment</th>
+                                    <th className="col-sessions">Sessions (Plan)</th>
                                     <th className="col-amount" style={{ textAlign: 'right' }}>Amount</th>
                                     <th className="col-action"></th>
                                 </tr>
@@ -633,18 +605,6 @@ export const BillingTab: React.FC<BillingTabProps> = ({
                         <tbody>
                             {items.map(item => {
                                 const manualService = !isProduct && (item.mode ?? 'catalog') === 'manual';
-                                const remainingSessions = !isProduct && item.description.trim()
-                                    ? (() => {
-                                        const clientKey = clientName.trim();
-                                        const serviceKey = item.description.trim();
-                                        const record = sessions?.[clientKey]?.[serviceKey];
-                                        const total = Number(item.totalSittings || 1);
-                                        if (!record) {
-                                            return total;
-                                        }
-                                        return Math.max(0, Number(record.total || total) - Number(record.completed || 0));
-                                    })()
-                                    : null;
 
                                 return (
                                     <tr key={item.id}>
@@ -696,11 +656,6 @@ export const BillingTab: React.FC<BillingTabProps> = ({
                                                     })()}
                                                 </div>
                                             )}
-                                            {!isProduct && remainingSessions !== null && (
-                                                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                                                    Remaining {remainingSessions} sessions of plan {Number(item.totalSittings || 1)}
-                                                </div>
-                                            )}
                                         </td>
 
                                         {/* Price */}
@@ -738,62 +693,18 @@ export const BillingTab: React.FC<BillingTabProps> = ({
                                             />
                                         </td>
 
-                                        {/* Sittings (Services only) */}
+                                        {/* Sessions plan total (Services only) */}
                                         {!isProduct && (
                                             <td className="col-sessions">
-                                                <div className="session-grid">
-                                                    <input
-                                                        type="number"
-                                                        min={1}
-                                                        className="form-control session-mini-input"
-                                                        value={item.completedSittings || ''}
-                                                        onChange={(e) =>
-                                                            updateItem(
-                                                                item.id,
-                                                                'completedSittings',
-                                                                Number(e.target.value),
-                                                                false
-                                                            )
-                                                        }
-                                                    />
-                                                    <span>of</span>
-                                                    <input
-                                                        type="number"
-                                                        min={Math.max(1, Number(item.completedSittings || 1))}
-                                                        className="form-control session-mini-input"
-                                                        value={item.totalSittings || ''}
-                                                        onChange={(e) =>
-                                                            updateItem(
-                                                                item.id,
-                                                                'totalSittings',
-                                                                Number(e.target.value),
-                                                                false
-                                                            )
-                                                        }
-                                                    />
-                                                </div>
-                                            </td>
-                                        )}
-
-                                        {/* Payment Toggle (Services only) */}
-                                        {!isProduct && (
-                                            <td className="col-payment">
-                                                <div className="payment-toggle">
-                                                    <button
-                                                        type="button"
-                                                        className={item.paymentMode === 'per_sitting' ? 'active' : ''}
-                                                        onClick={() => updateItem(item.id, 'paymentMode', 'per_sitting', false)}
-                                                    >
-                                                        Sitting
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        className={item.paymentMode === 'full' ? 'active' : ''}
-                                                        onClick={() => updateItem(item.id, 'paymentMode', 'full', false)}
-                                                    >
-                                                        Full
-                                                    </button>
-                                                </div>
+                                                <input
+                                                    type="number"
+                                                    min={1}
+                                                    className="form-control session-mini-input"
+                                                    value={item.totalSittings || ''}
+                                                    onChange={(e) =>
+                                                        updateItem(item.id, 'totalSittings', Number(e.target.value), false)
+                                                    }
+                                                />
                                             </td>
                                         )}
 

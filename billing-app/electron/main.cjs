@@ -758,28 +758,35 @@ const processPayment = (dataDir, payload) => {
         }
     }
 
-    // ITEMS_ONLY: commit here, no allocation
-    if (mode === 'ITEMS_ONLY') {
-        saveBilling(dataDir, billing);
-        updateSessionCache(dataDir, customerId, billing, { address: payload.address, stateCode: payload.stateCode });
-        return { success: true, receiptId, mode, gstSeq: null };
-    }
-
-    // Step 3 — PAYMENT ledger entry
     let nextTxnId = billing.credit_ledger.length > 0
         ? Math.max(...billing.credit_ledger.map(e => e.txn_id)) + 1 : 1;
-    billing.credit_ledger.push({
-        txn_id: nextTxnId++,
-        customer_id: customerId,
-        type: 'PAYMENT',
-        amount: roundMoney(Number(payload.payment)),
-        ref_id: receiptId,
-        date: today
-    });
+
+    // ITEMS_ONLY: skip allocation unless existing advance credit can cover new items
+    if (mode === 'ITEMS_ONLY') {
+        const creditAvailable = getAdvanceCredit(billing, customerId);
+        if (creditAvailable <= 0) {
+            saveBilling(dataDir, billing);
+            updateSessionCache(dataDir, customerId, billing, { address: payload.address, stateCode: payload.stateCode });
+            return { success: true, receiptId, mode, gstSeq: null };
+        }
+        // fall through to Steps 4-8 using only the existing credit (no new payment)
+    }
+
+    // Step 3 — PAYMENT ledger entry (only when payment is provided)
+    if (hasPayment) {
+        billing.credit_ledger.push({
+            txn_id: nextTxnId++,
+            customer_id: customerId,
+            type: 'PAYMENT',
+            amount: roundMoney(Number(payload.payment)),
+            ref_id: receiptId,
+            date: today
+        });
+    }
 
     // Step 4 — consume existing advance credit
     const existingCredit = getAdvanceCredit(billing, customerId);
-    let allocatable = roundMoney(existingCredit + Number(payload.payment));
+    let allocatable = roundMoney(existingCredit + (hasPayment ? Number(payload.payment) : 0));
     if (existingCredit > 0) {
         billing.credit_ledger.push({
             txn_id: nextTxnId++,
@@ -820,7 +827,7 @@ const processPayment = (dataDir, payload) => {
             covered.push(unit);
             allocatable = roundMoney(allocatable - unit.taxed_total);
         } else {
-            break;
+            continue; // skip items that can't be fully covered; try smaller ones after
         }
     }
 
