@@ -1,5 +1,6 @@
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import './index.css';
 import { Sidebar } from './components/Sidebar';
 import { BillingTab } from './components/BillingTab';
@@ -12,6 +13,7 @@ import { CustomerLedgerTab } from './components/CustomerLedgerTab';
 import { TaxReportTab } from './components/TaxReportTab';
 import { Toast } from './components/Toast';
 import { PrintTemplate } from './components/PrintTemplate';
+import { ReceiptTemplate, ReceiptTemplateProps } from './components/ReceiptTemplate';
 import { InventoryItem, Bill, BillItem, BillRow, Customer, CustomerBillingInfo, ProcessPaymentPayload, BillingItemPayload } from './types';
 import { INITIAL_CATALOG } from './constants';
 
@@ -34,6 +36,18 @@ const normalizeCustomerKey = (phone: string, name: string) => {
   const p = phone.replace(/\D/g, '');
   const n = name.trim().toLowerCase().replace(/\s+/g, ' ');
   return `${p}::${n}`;
+};
+
+const formatReceiptId = (receiptId: string): string => {
+  const parts = receiptId.trim().split(' ');
+  const base = parts[0].padStart(4, '0');
+  return parts[1] ? `${base}(${parts[1]})` : base;
+};
+
+const formatDDMMYYYY = (isoDate: string): string => {
+  const d = new Date(isoDate + (isoDate.length === 10 ? 'T00:00:00' : ''));
+  if (isNaN(d.getTime())) return isoDate;
+  return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}`;
 };
 
 const buildCustomerMap = (bills: Bill[]): Customer[] => {
@@ -97,7 +111,11 @@ export default function App() {
   const [producedBill, setProducedBill] = useState<Bill | null>(null);
   const [sessions, setSessions] = useState<Record<string, Record<string, { total: number; completed: number }>>>({});
 
+  const [isProcessing, setIsProcessing] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState('');
+  const [receiptLevelDiscount, setReceiptLevelDiscount] = useState(0);
+  const [receiptDiscountType, setReceiptDiscountType] = useState<'amount' | 'percent'>('percent');
+  const [receiptPreviewData, setReceiptPreviewData] = useState<ReceiptTemplateProps | null>(null);
   const [billReceiptFirst, setBillReceiptFirst] = useState(false);
   const [customerBillingInfo, setCustomerBillingInfo] = useState<CustomerBillingInfo | null>(null);
   const [nextReceiptId, setNextReceiptId] = useState<string | null>(null);
@@ -385,18 +403,31 @@ export default function App() {
     setServiceItems(rServices.length > 0 ? rServices : [createEmptyServiceItem()]);
   };
 
-  const buildBillingItems = (): BillingItemPayload[] => {
+  const buildBillingItems = (receiptDiscountRupees?: number): BillingItemPayload[] => {
     const items: BillingItemPayload[] = [];
+
+    const totalGross = receiptDiscountRupees
+      ? [...serviceItems, ...productItems]
+          .filter(i => i.description.trim())
+          .reduce((s, i) => s + Number(i.price || 0) * Number(i.quantity || 1), 0)
+      : 0;
 
     for (const item of serviceItems) {
       if (!item.description.trim()) continue;
       const total = Math.max(1, Number(item.totalSittings || 1));
       const qty = Number(item.quantity || 1);
       const fullPrice = Number(item.price || 0);
-      const discPct = Number(item.discount || 0);
       const unitPrice = total > 0 ? fullPrice / total : fullPrice;
       const lineQty = total * qty;
-      const unitDiscount = Math.round((unitPrice * discPct / 100 + Number.EPSILON) * 100) / 100;
+      let unitDiscount: number;
+      if (receiptDiscountRupees && totalGross > 0) {
+        const itemGross = fullPrice * qty;
+        const share = receiptDiscountRupees * (itemGross / totalGross);
+        unitDiscount = Math.round((share / lineQty + Number.EPSILON) * 100) / 100;
+      } else {
+        const discPct = Number(item.discount || 0);
+        unitDiscount = Math.round((unitPrice * discPct / 100 + Number.EPSILON) * 100) / 100;
+      }
       items.push({
         catalogId: item.catalogId || '',
         description: item.description.trim(),
@@ -414,9 +445,16 @@ export default function App() {
       if (!item.description.trim()) continue;
       const unitPrice = Number(item.price || 0);
       const qty = Number(item.quantity || 1);
-      const discPct = Number(item.discount || 0);
-      const unitDiscount = Math.round((unitPrice * discPct / 100 + Number.EPSILON) * 100) / 100;
       const itemGstRate = applyGST ? (Number(item.gst || 0) || gstRate) : 0;
+      let unitDiscount: number;
+      if (receiptDiscountRupees && totalGross > 0) {
+        const itemGross = unitPrice * qty;
+        const share = receiptDiscountRupees * (itemGross / totalGross);
+        unitDiscount = Math.round((share / qty + Number.EPSILON) * 100) / 100;
+      } else {
+        const discPct = Number(item.discount || 0);
+        unitDiscount = Math.round((unitPrice * discPct / 100 + Number.EPSILON) * 100) / 100;
+      }
       items.push({
         catalogId: item.catalogId || '',
         description: item.description.trim(),
@@ -434,6 +472,7 @@ export default function App() {
   };
 
   const handleProcessPayment = async () => {
+    if (isProcessing) return;
     const normalizedPhone = clientPhone.replace(/\D/g, '');
     if (normalizedPhone.length !== 10) {
       showToast('A valid 10-digit phone number is required', 'error');
@@ -443,9 +482,18 @@ export default function App() {
       showToast('Client Name is required', 'error');
       return;
     }
+    setIsProcessing(true);
 
     const paymentVal = paymentAmount === '' ? null : Number(paymentAmount);
-    const billingItems = buildBillingItems();
+
+    // Compute receipt-level discount in rupees (overrides item-level when set)
+    const allValidItems = [...serviceItems, ...productItems].filter(i => i.description.trim());
+    const totalGross = allValidItems.reduce((s, i) => s + Number(i.price || 0) * Number(i.quantity || 1), 0);
+    const receiptDiscRupees = receiptLevelDiscount > 0
+      ? (receiptDiscountType === 'percent' ? totalGross * receiptLevelDiscount / 100 : receiptLevelDiscount)
+      : 0;
+
+    const billingItems = buildBillingItems(receiptDiscRupees > 0 ? receiptDiscRupees : undefined);
 
     if (billingItems.length === 0 && paymentVal === null) {
       showToast('Please add at least one item or enter a payment amount', 'error');
@@ -453,6 +501,10 @@ export default function App() {
     }
 
     const clientKey = normalizeCustomerKey(normalizedPhone, clientName);
+
+    // Capture old balance and last receipt reference BEFORE submit
+    const oldBalance = customerBillingInfo?.outstanding ?? 0;
+    const oldLastReceipt = customerBillingInfo?.last_receipt ?? null;
 
     const payload: ProcessPaymentPayload = {
       customerId: clientKey,
@@ -467,15 +519,54 @@ export default function App() {
       const result = await window.electronAPI.billingProcessPayment(payload);
       if (!result.success) {
         showToast(result.error || 'Failed to process payment', 'error');
+        setIsProcessing(false);
         return;
       }
 
-      showToast(`Saved — Receipt ${result.receiptId} (${result.mode})`, 'success');
+      // Build receipt preview data from current state
+      const validSvc = serviceItems.filter(i => i.description.trim());
+      const validPrd = productItems.filter(i => i.description.trim());
+      const svcGross = validSvc.reduce((s, i) => s + Number(i.price || 0) * Number(i.quantity || 1), 0);
+      const prdGross = validPrd.reduce((s, i) => s + Number(i.price || 0) * Number(i.quantity || 1), 0);
+      const totGross = svcGross + prdGross;
 
+      let svcDisc: number, prdDisc: number;
+      if (receiptDiscRupees > 0 && totGross > 0) {
+        svcDisc = receiptDiscRupees * (svcGross / totGross);
+        prdDisc = receiptDiscRupees * (prdGross / totGross);
+      } else {
+        svcDisc = validSvc.reduce((s, i) => s + Number(i.price || 0) * Number(i.quantity || 1) * Number(i.discount || 0) / 100, 0);
+        prdDisc = validPrd.reduce((s, i) => s + Number(i.price || 0) * Number(i.quantity || 1) * Number(i.discount || 0) / 100, 0);
+      }
+
+      const oldBalRef = oldLastReceipt
+        ? `BILL:${oldLastReceipt.id.split(' ')[0]}, DATED:${formatDDMMYYYY(oldLastReceipt.date)}`
+        : '';
+
+      setReceiptPreviewData({
+        billNo: formatReceiptId(result.receiptId || ''),
+        billDate: new Date().toISOString().split('T')[0],
+        clientName,
+        clientPhone: normalizedPhone,
+        clientAddress,
+        serviceItems: validSvc,
+        productItems: validPrd,
+        serviceDiscountTotal: svcDisc,
+        productDiscountTotal: prdDisc,
+        amountPaid: paymentVal,
+        oldBalanceAmount: oldBalance,
+        oldBalanceBillRef: oldBalRef,
+        balanceDue: result.outstanding ?? 0,
+      });
+
+      showToast(`Receipt ${result.receiptId} saved`, 'success');
       await Promise.all([loadCustomerInfo(clientKey), fetchHistory()]);
       setPaymentAmount('');
+      setReceiptLevelDiscount(0);
     } catch {
       showToast('An error occurred during processing', 'error');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -496,6 +587,41 @@ export default function App() {
     }
   };
 
+  const handleSaveReceiptPdf = async () => {
+    if (!receiptPreviewData) return;
+    document.body.classList.add('saving-receipt');
+    await new Promise(r => requestAnimationFrame(r));
+    await new Promise(r => setTimeout(r, 60));
+    const filename = `receipt-${receiptPreviewData.billNo}-${Date.now()}`;
+    try {
+      const result = await window.electronAPI.saveReceiptPdf(filename);
+      if (result.success) {
+        showToast('Receipt PDF saved', 'success');
+      } else if (!result.cancelled) {
+        showToast('Failed to save PDF', 'error');
+      }
+    } finally {
+      document.body.classList.remove('saving-receipt');
+    }
+  };
+
+  const handlePrintReceipt = () => {
+    document.body.classList.add('saving-receipt');
+    window.print();
+    document.body.classList.remove('saving-receipt');
+  };
+
+  // Computed effective discount for BillingTab summary display
+  const effectiveSummaryDiscount = useMemo(() => {
+    if (receiptLevelDiscount <= 0) return null;
+    const gross = [...serviceItems, ...productItems]
+      .filter(i => i.description.trim())
+      .reduce((s, i) => s + Number(i.price || 0) * Number(i.quantity || 1), 0);
+    return receiptDiscountType === 'percent'
+      ? gross * receiptLevelDiscount / 100
+      : receiptLevelDiscount;
+  }, [receiptLevelDiscount, receiptDiscountType, serviceItems, productItems]);
+
   const startNewBill = () => {
     setClientName('');
     setClientPhone('');
@@ -508,6 +634,8 @@ export default function App() {
     setBillReceiptFirst(false);
     setCustomerBillingInfo(null);
     setNextReceiptId(null);
+    setReceiptLevelDiscount(0);
+    setReceiptPreviewData(null);
     fetchNextBillId();
   };
 
@@ -618,10 +746,16 @@ export default function App() {
               billReceiptFirst={billReceiptFirst} setBillReceiptFirst={setBillReceiptFirst}
               inventory={inventory}
               handleProduceBill={handleProcessPayment}
+              isProcessing={isProcessing}
               handleStartNewSeries={handleStartNewSeries}
               nextReceiptId={nextReceiptId}
               customerBillingInfo={customerBillingInfo}
               customers={customers}
+              receiptLevelDiscount={receiptLevelDiscount}
+              setReceiptLevelDiscount={setReceiptLevelDiscount}
+              receiptDiscountType={receiptDiscountType}
+              setReceiptDiscountType={setReceiptDiscountType}
+              effectiveSummaryDiscount={effectiveSummaryDiscount}
             />
           )}
 
@@ -679,6 +813,37 @@ export default function App() {
         <div className="no-print">
           <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
         </div>
+      )}
+
+      {/* Receipt preview modal */}
+      {receiptPreviewData && (
+        <div
+          className="receipt-modal-overlay no-print"
+          onClick={e => { if (e.target === e.currentTarget) setReceiptPreviewData(null); }}
+        >
+          <div className="receipt-modal-box">
+            <div className="receipt-modal-header">
+              <span className="receipt-modal-title">Receipt Preview — {receiptPreviewData.billNo}</span>
+              <button className="receipt-modal-close" onClick={() => setReceiptPreviewData(null)}>×</button>
+            </div>
+            <div className="receipt-modal-body">
+              <ReceiptTemplate {...receiptPreviewData} />
+            </div>
+            <div className="receipt-modal-footer">
+              <button className="btn btn-secondary" onClick={() => setReceiptPreviewData(null)}>Close</button>
+              <button className="btn btn-secondary" onClick={handlePrintReceipt}>Print</button>
+              <button className="btn btn-primary" onClick={handleSaveReceiptPdf}>Save PDF</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Portal print layer — shown only during saving-receipt */}
+      {receiptPreviewData && createPortal(
+        <div className="receipt-print-layer">
+          <ReceiptTemplate {...receiptPreviewData} />
+        </div>,
+        document.body
       )}
 
       {producedBill && producedSummary && (

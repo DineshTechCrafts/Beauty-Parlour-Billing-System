@@ -143,6 +143,15 @@
       "mode": "ITEMS_ONLY",
       "bill_receipt_first": false,
       "created_at": "2026-06-05T19:02:27.859Z"
+    },
+    {
+      "receipt_id": "4 A",
+      "customer_id": "1211111111::jj",
+      "receipt_date": "2026-06-06",
+      "payment": 3000,
+      "mode": "PAYMENT_ONLY",
+      "bill_receipt_first": false,
+      "created_at": "2026-06-06T09:00:52.500Z"
     }
   ],
   "receipt_items": [
@@ -789,8 +798,8 @@
       "taxed_total": 900,
       "sac_hsn_code": "",
       "unit": "NOS",
-      "status": "PENDING",
-      "invoiced_in_seq": null
+      "status": "INVOICED",
+      "invoiced_in_seq": 8
     },
     {
       "line_id": "4#2",
@@ -942,8 +951,8 @@
       "taxed_total": 900,
       "sac_hsn_code": "",
       "unit": "NOS",
-      "status": "PENDING",
-      "invoiced_in_seq": null
+      "status": "INVOICED",
+      "invoiced_in_seq": 8
     },
     {
       "line_id": "4#11",
@@ -959,8 +968,8 @@
       "taxed_total": 900,
       "sac_hsn_code": "",
       "unit": "NOS",
-      "status": "PENDING",
-      "invoiced_in_seq": null
+      "status": "INVOICED",
+      "invoiced_in_seq": 8
     },
     {
       "line_id": "4#12",
@@ -2153,6 +2162,108 @@
       "unit": "NOS",
       "source_receipt_id": "3 B",
       "source_line_id": "3 B#1"
+    },
+    {
+      "gst_seq": 8,
+      "receipt_id": "4 A",
+      "date": "2026-06-06",
+      "client_name": "jj",
+      "client_phone": "1211111111",
+      "client_address": "",
+      "sub_total": 3000,
+      "discount": 300,
+      "cgst": 0,
+      "sgst": 0,
+      "igst": 0,
+      "gst_total": 0,
+      "taxable_amount": 2700,
+      "service_total": 2700,
+      "product_total": 0,
+      "total": 2700,
+      "gst_rate": 0,
+      "billing_mode": "b2c",
+      "place_of_supply": "33",
+      "buyer_gstin": "",
+      "buyer_legal_name": "",
+      "buyer_state_code": "33",
+      "reverse_charge": "N",
+      "invoice_type": "Tax Invoice",
+      "item_description": "5 KG Reduction (15 Sessions)",
+      "price": 1000,
+      "quantity": 1,
+      "amount": 1000,
+      "sac_hsn_code": "",
+      "unit": "NOS",
+      "source_receipt_id": "4",
+      "source_line_id": "4#1"
+    },
+    {
+      "gst_seq": 8,
+      "receipt_id": "4 A",
+      "date": "2026-06-06",
+      "client_name": "jj",
+      "client_phone": "1211111111",
+      "client_address": "",
+      "sub_total": 3000,
+      "discount": 300,
+      "cgst": 0,
+      "sgst": 0,
+      "igst": 0,
+      "gst_total": 0,
+      "taxable_amount": 2700,
+      "service_total": 2700,
+      "product_total": 0,
+      "total": 2700,
+      "gst_rate": 0,
+      "billing_mode": "b2c",
+      "place_of_supply": "33",
+      "buyer_gstin": "",
+      "buyer_legal_name": "",
+      "buyer_state_code": "33",
+      "reverse_charge": "N",
+      "invoice_type": "Tax Invoice",
+      "item_description": "5 KG Reduction (15 Sessions)",
+      "price": 1000,
+      "quantity": 1,
+      "amount": 1000,
+      "sac_hsn_code": "",
+      "unit": "NOS",
+      "source_receipt_id": "4",
+      "source_line_id": "4#10"
+    },
+    {
+      "gst_seq": 8,
+      "receipt_id": "4 A",
+      "date": "2026-06-06",
+      "client_name": "jj",
+      "client_phone": "1211111111",
+      "client_address": "",
+      "sub_total": 3000,
+      "discount": 300,
+      "cgst": 0,
+      "sgst": 0,
+      "igst": 0,
+      "gst_total": 0,
+      "taxable_amount": 2700,
+      "service_total": 2700,
+      "product_total": 0,
+      "total": 2700,
+      "gst_rate": 0,
+      "billing_mode": "b2c",
+      "place_of_supply": "33",
+      "buyer_gstin": "",
+      "buyer_legal_name": "",
+      "buyer_state_code": "33",
+      "reverse_charge": "N",
+      "invoice_type": "Tax Invoice",
+      "item_description": "5 KG Reduction (15 Sessions)",
+      "price": 1000,
+      "quantity": 1,
+      "amount": 1000,
+      "sac_hsn_code": "",
+      "unit": "NOS",
+      "source_receipt_id": "4",
+      "source_line_id": "4#11"
     }
   ],
   "credit_ledger": [
@@ -2291,10 +2402,34 @@
       "amount": 3000,
       "ref_id": "cash returned",
       "date": "2026-06-05"
+    },
+    {
+      "txn_id": 18,
+      "customer_id": "1211111111::jj",
+      "type": "PAYMENT",
+      "amount": 3000,
+      "ref_id": "4 A",
+      "date": "2026-06-06"
+    },
+    {
+      "txn_id": 19,
+      "customer_id": "1211111111::jj",
+      "type": "INVOICE",
+      "amount": 2700,
+      "ref_id": "8",
+      "date": "2026-06-06"
+    },
+    {
+      "txn_id": 20,
+      "customer_id": "1211111111::jj",
+      "type": "ADVANCE_CREDIT",
+      "amount": 300,
+      "ref_id": "4 A",
+      "date": "2026-06-06"
     }
   ],
   "counters": {
-    "gst_seq": 8,
+    "gst_seq": 9,
     "receipt_base": 5
   },
   "customer_series": {

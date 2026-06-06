@@ -20,4 +20,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
     billingGetCustomerList: () => ipcRenderer.invoke('billing:get-customer-list'),
     billingGetCustomerLedger: (customerId) => ipcRenderer.invoke('billing:get-customer-ledger', customerId),
     billingGetTaxInvoices: () => ipcRenderer.invoke('billing:get-tax-invoices'),
+    saveReceiptPdf: (filename) => ipcRenderer.invoke('save-receipt-pdf', filename),
 });

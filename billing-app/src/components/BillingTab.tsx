@@ -193,10 +193,16 @@ interface BillingTabProps {
 
     inventory: InventoryItem[];
     handleProduceBill: () => void;
+    isProcessing: boolean;
     handleStartNewSeries: () => void;
     nextReceiptId: string | null;
     customerBillingInfo: CustomerBillingInfo | null;
     customers: Customer[];
+    receiptLevelDiscount: number;
+    setReceiptLevelDiscount: (v: number) => void;
+    receiptDiscountType: 'amount' | 'percent';
+    setReceiptDiscountType: (v: 'amount' | 'percent') => void;
+    effectiveSummaryDiscount: number | null;
 }
 
 const currencyFormatter = new Intl.NumberFormat('en-IN', {
@@ -371,8 +377,10 @@ export const BillingTab: React.FC<BillingTabProps> = ({
     productItems, setProductItems, serviceItems, setServiceItems,
     applyGST, setApplyGST, gstRate, setGstRate,
     paymentAmount, setPaymentAmount, billReceiptFirst, setBillReceiptFirst,
-    inventory, handleProduceBill, handleStartNewSeries, nextReceiptId, customerBillingInfo,
-    customers
+    inventory, handleProduceBill, isProcessing, handleStartNewSeries, nextReceiptId, customerBillingInfo,
+    customers,
+    receiptLevelDiscount, setReceiptLevelDiscount, receiptDiscountType, setReceiptDiscountType,
+    effectiveSummaryDiscount
 }) => {
     const [seriesCooldown, setSeriesCooldown] = useState(false);
 
@@ -863,12 +871,16 @@ export const BillingTab: React.FC<BillingTabProps> = ({
                             <strong>{formatCurrency(summaryData.productPreDiscount)}</strong>
                         </p>
                         <p className="muted">
-                            <span>Total Discount</span>
-                            <strong>-{formatCurrency(summaryData.discount)}</strong>
+                            <span>Total Discount{effectiveSummaryDiscount != null ? ' (Receipt)' : ''}</span>
+                            <strong>-{formatCurrency(effectiveSummaryDiscount ?? summaryData.discount)}</strong>
                         </p>
                         <p>
                             <span>Taxable Amount</span>
-                            <strong>{formatCurrency(summaryData.taxable)}</strong>
+                            <strong>{formatCurrency(
+                                effectiveSummaryDiscount != null
+                                    ? Math.max(0, summaryData.servicePreDiscount + summaryData.productPreDiscount - effectiveSummaryDiscount)
+                                    : summaryData.taxable
+                            )}</strong>
                         </p>
                         <p className="muted">
                             <span>CGST ({applyGST ? `${gstRate}%` : '0%'})</span>
@@ -914,9 +926,47 @@ export const BillingTab: React.FC<BillingTabProps> = ({
                         </div>
                     </div>
 
+                    {/* Receipt-level discount (overrides all item discounts) */}
+                    <div className="receipt-discount-box">
+                        <div className="receipt-discount-label">Receipt Discount (overrides item discounts)</div>
+                        <div className="receipt-discount-row">
+                            <button
+                                type="button"
+                                className={`disc-type-btn${receiptDiscountType === 'percent' ? ' active' : ''}`}
+                                onClick={() => setReceiptDiscountType('percent')}
+                            >%</button>
+                            <button
+                                type="button"
+                                className={`disc-type-btn${receiptDiscountType === 'amount' ? ' active' : ''}`}
+                                onClick={() => setReceiptDiscountType('amount')}
+                            >₹</button>
+                            <input
+                                type="number"
+                                className="form-control"
+                                style={{ fontSize: '0.82rem' }}
+                                placeholder={receiptDiscountType === 'percent' ? '0 %' : '₹ 0'}
+                                value={receiptLevelDiscount || ''}
+                                onChange={e => setReceiptLevelDiscount(Math.max(0, Number(e.target.value)))}
+                                min="0"
+                                disabled={isPhoneLocked}
+                            />
+                            {receiptLevelDiscount > 0 && (
+                                <button
+                                    type="button"
+                                    className="disc-clear-btn"
+                                    onClick={() => setReceiptLevelDiscount(0)}
+                                >✕</button>
+                            )}
+                        </div>
+                    </div>
+
                     <div className="summary-total-row">
                         <span>Total Due</span>
-                        <span className="total">{formatCurrency(summaryData.grandTotal)}</span>
+                        <span className="total">{formatCurrency(
+                            effectiveSummaryDiscount != null
+                                ? Math.max(0, summaryData.servicePreDiscount + summaryData.productPreDiscount - effectiveSummaryDiscount) + summaryData.gstTotal
+                                : summaryData.grandTotal
+                        )}</span>
                     </div>
 
                     {/* Payment section */}
@@ -949,10 +999,10 @@ export const BillingTab: React.FC<BillingTabProps> = ({
                     <button
                         className="btn btn-primary btn-checkout"
                         onClick={handleProduceBill}
-                        disabled={isPhoneLocked}
-                        style={{ opacity: isPhoneLocked ? 0.5 : 1, cursor: isPhoneLocked ? 'not-allowed' : 'pointer' }}
+                        disabled={isPhoneLocked || isProcessing}
+                        style={{ opacity: (isPhoneLocked || isProcessing) ? 0.5 : 1, cursor: (isPhoneLocked || isProcessing) ? 'not-allowed' : 'pointer' }}
                     >
-                        <Icons.Save /> Generate Invoice
+                        <Icons.Save /> {isProcessing ? 'Saving…' : 'Generate Receipt'}
                     </button>
                 </div>
             </div>

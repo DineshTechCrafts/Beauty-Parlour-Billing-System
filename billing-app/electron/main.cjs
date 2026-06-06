@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -656,6 +656,15 @@ const appendInvoiceToCsv = (dataDir, invoiceEntries) => {
     if (!fs.existsSync(csvFile)) {
         fs.writeFileSync(csvFile, fullHeader + '\n', 'utf8');
     }
+    // Deduplication: skip if this receipt_id already exists in the file
+    const receiptId = String(invoiceEntries[0].receipt_id);
+    const existing = fs.readFileSync(csvFile, 'utf8');
+    const alreadyExists = existing.split('\n').slice(1).some(line => {
+        if (!line.trim()) return false;
+        const firstCol = line.split(',')[0].replace(/"/g, '');
+        return firstCol === receiptId;
+    });
+    if (alreadyExists) return;
     const sanitize = (val) => {
         const str = String(val ?? '');
         return (str.includes(',') || str.includes('"') || str.includes('\n'))
@@ -1151,6 +1160,10 @@ ipcMain.handle('billing:get-customer-info', async (event, customerId) => {
         const billing = loadBilling(dataDir);
         const sessions = loadSessionsRaw(dataDir);
         const cust = sessions[customerId] || {};
+        const customerReceipts = billing.receipts.filter(r => r.customer_id === customerId);
+        const latestReceipt = customerReceipts.length > 0
+            ? customerReceipts.reduce((prev, r) => r.created_at > prev.created_at ? r : prev, customerReceipts[0])
+            : null;
         const data = {
             outstanding: roundMoney(getOutstanding(billing, customerId)),
             advance_credit: getAdvanceCredit(billing, customerId),
@@ -1158,7 +1171,8 @@ ipcMain.handle('billing:get-customer-info', async (event, customerId) => {
             next_receipt_id: billing.customer_series[customerId] != null
                 ? getNextReceiptId(billing, customerId) : null,
             address: cust._customer?.address || '',
-            state_code: cust._customer?.state_code || SELLER_STATE
+            state_code: cust._customer?.state_code || SELLER_STATE,
+            last_receipt: latestReceipt ? { id: latestReceipt.receipt_id, date: latestReceipt.receipt_date } : null
         };
         return { success: true, data };
     } catch (error) {
@@ -1242,6 +1256,30 @@ ipcMain.handle('save-pdf', async (event, filename) => {
         return { success: true, path: pdfPath };
     } catch (error) {
         console.error('Failed to save PDF:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle('save-receipt-pdf', async (event, filename) => {
+    try {
+        const win = BrowserWindow.fromWebContents(event.sender);
+        const { filePath, canceled } = await dialog.showSaveDialog(win, {
+            title: 'Save Receipt PDF',
+            defaultPath: `${filename}.pdf`,
+            filters: [{ name: 'PDF Files', extensions: ['pdf'] }]
+        });
+        if (canceled || !filePath) {
+            return { success: false, cancelled: true };
+        }
+        const pdfData = await win.webContents.printToPDF({
+            printBackground: true,
+            pageSize: 'A4',
+            marginsType: 0
+        });
+        fs.writeFileSync(filePath, pdfData);
+        return { success: true, path: filePath };
+    } catch (error) {
+        console.error('Failed to save receipt PDF:', error);
         return { success: false, error: error.message };
     }
 });
