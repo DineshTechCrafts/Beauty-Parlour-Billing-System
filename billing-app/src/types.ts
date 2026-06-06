@@ -187,6 +187,8 @@ export interface ReceiptQueueItem {
   taxed_total: number;
   status: 'PENDING' | 'INVOICED' | 'CANCELLED';
   date: string;
+  type?: 'PRODUCT' | 'SERVICE';
+  attended?: boolean;
 }
 
 export interface CustomerQueueResult {
@@ -235,6 +237,7 @@ declare global {
       billingStartNewSeries: (customerId: string) => Promise<{ success: boolean; newBase?: number; error?: string }>;
       billingGetCustomerInfo: (customerId: string) => Promise<{ success: boolean; data?: CustomerBillingInfo; error?: string }>;
       billingGetCustomerQueue: (customerId: string) => Promise<CustomerQueueResult>;
+      billingToggleItemAttendance: (payload: { customerId: string; lineId: string }) => Promise<{ success: boolean; attended?: boolean; error?: string }>;
       billingGetCustomerList: () => Promise<{ success: boolean; customers?: Array<{ customerId: string; phone: string; name: string; visitCount: number; totalSpent: number; lastReceiptDate: string | null }>; error?: string }>;
       billingCancelPendingItems: (payload: { customerId: string; lineIds: string[] }) => Promise<{ success: boolean; cancelled?: number; outstanding?: number; advance_credit?: number; error?: string }>;
       billingRefundCredit: (payload: { customerId: string; amount: number; note?: string }) => Promise<{ success: boolean; refunded?: number; advance_credit?: number; error?: string }>;

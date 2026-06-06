@@ -1116,6 +1116,7 @@ ipcMain.handle('billing:get-customer-queue', async (event, customerId) => {
     try {
         const dataDir = resolveDataDir();
         const billing = loadBilling(dataDir);
+        const receiptsMap = new Map(billing.receipts.map(r => [r.receipt_id, r.receipt_date]));
         const items = billing.receipt_items
             .filter(item => item.customer_id === customerId)
             .map(item => ({
@@ -1125,7 +1126,9 @@ ipcMain.handle('billing:get-customer-queue', async (event, customerId) => {
                 item_description: item.item_description,
                 taxed_total: item.taxed_total,
                 status: item.status,
-                date: item.date
+                date: receiptsMap.get(item.receipt_id) || '',
+                type: item.type,
+                attended: !!item.attended
             }))
             .sort((a, b) => String(a.line_id).localeCompare(String(b.line_id)));
         return {
@@ -1136,6 +1139,26 @@ ipcMain.handle('billing:get-customer-queue', async (event, customerId) => {
         };
     } catch (error) {
         console.error('billing:get-customer-queue failed:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle('billing:toggle-item-attendance', async (event, { customerId, lineId }) => {
+    try {
+        const dataDir = resolveDataDir();
+        const billing = loadBilling(dataDir);
+        const item = billing.receipt_items.find(i => String(i.line_id) === String(lineId) && i.customer_id === customerId);
+        if (!item) {
+            return { success: false, error: 'Item not found' };
+        }
+        if (item.status === 'CANCELLED') {
+            return { success: false, error: 'Cannot change attendance of a cancelled session' };
+        }
+        item.attended = !item.attended;
+        saveBilling(dataDir, billing);
+        return { success: true, attended: item.attended };
+    } catch (error) {
+        console.error('billing:toggle-item-attendance failed:', error);
         return { success: false, error: error.message };
     }
 });

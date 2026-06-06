@@ -40,6 +40,7 @@ export const CustomerTab = ({ customers, sessions: _sessions, isActive }: Custom
 
   // Queue state
   const [queueFilter, setQueueFilter] = useState<QueueFilter>('ALL');
+  const [progressFilter, setProgressFilter] = useState<'ALL' | 'ONGOING' | 'COMPLETED'>('ALL');
   const [queueItems, setQueueItems] = useState<ReceiptQueueItem[]>([]);
   const [queueOutstanding, setQueueOutstanding] = useState(0);
   const [queueCredit, setQueueCredit] = useState(0);
@@ -100,6 +101,7 @@ export const CustomerTab = ({ customers, sessions: _sessions, isActive }: Custom
   useEffect(() => {
     if (selectedCustomer?.key) {
       setQueueFilter('ALL');
+      setProgressFilter('ALL');
       setSelectedLineIds(new Set());
       setCancelError('');
       setRefundAmount('');
@@ -129,28 +131,42 @@ export const CustomerTab = ({ customers, sessions: _sessions, isActive }: Custom
 
   const sessionProgress = useMemo(() => {
     if (queueItems.length === 0) return [];
+    const serviceItems = queueItems.filter(item => item.type === 'SERVICE');
     const groups = new Map<string, ReceiptQueueItem[]>();
-    for (const item of queueItems) {
+    for (const item of serviceItems) {
       const key = `${item.receipt_id}||${item.item_description}`;
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key)!.push(item);
     }
     return Array.from(groups.entries())
-      .filter(([, items]) => items.length > 1)
       .map(([groupKey, items]) => {
         const [receiptId, description] = groupKey.split('||');
+        const completedCount = items.filter(i => i.attended).length;
+        const cancelledCount = items.filter(i => i.status === 'CANCELLED').length;
+        const totalCount = items.length;
         return {
           key: groupKey,
           receiptId,
           description,
-          total: items.length,
-          completed: items.filter(i => i.status === 'INVOICED').length,
-          cancelled: items.filter(i => i.status === 'CANCELLED').length,
-          pending: items.filter(i => i.status === 'PENDING').length,
+          total: totalCount,
+          completed: completedCount,
+          cancelled: cancelledCount,
+          pending: Math.max(0, totalCount - completedCount - cancelledCount),
         };
       })
       .sort((a, b) => a.receiptId.localeCompare(b.receiptId));
   }, [queueItems]);
+
+  const visibleProgress = useMemo(() => {
+    if (progressFilter === 'ALL') return sessionProgress;
+    if (progressFilter === 'ONGOING') {
+      return sessionProgress.filter(entry => entry.pending > 0);
+    }
+    return sessionProgress.filter(entry => entry.pending === 0);
+  }, [sessionProgress, progressFilter]);
+
+  const ongoingProgressCount = useMemo(() => sessionProgress.filter(entry => entry.pending > 0).length, [sessionProgress]);
+  const completedProgressCount = useMemo(() => sessionProgress.filter(entry => entry.pending === 0).length, [sessionProgress]);
 
   const visibleQueue = useMemo(() => {
     if (queueFilter === 'ALL') return queueItems;
@@ -169,6 +185,24 @@ export const CustomerTab = ({ customers, sessions: _sessions, isActive }: Custom
       return next;
     });
     setCancelError('');
+  };
+
+  const toggleAttendance = async (lineId: string) => {
+    if (!selectedCustomer?.key) return;
+    setCancelError('');
+    try {
+      const result = await window.electronAPI.billingToggleItemAttendance({
+        customerId: selectedCustomer.key,
+        lineId
+      });
+      if (result.success) {
+        await loadQueue(selectedCustomer.key);
+      } else {
+        setCancelError(result.error ?? 'Failed to update attendance');
+      }
+    } catch (e: any) {
+      setCancelError(e.message ?? 'Failed to update attendance');
+    }
   };
 
   const handleCancelSelected = async () => {
@@ -352,12 +386,25 @@ export const CustomerTab = ({ customers, sessions: _sessions, isActive }: Custom
             </section>
 
             <section style={{ marginBottom: '2rem' }}>
-              <h3 style={{ marginBottom: '0.75rem' }}>Session Progress</h3>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                <h3 style={{ margin: 0 }}>Session Progress</h3>
+                <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                  <button type="button" style={tabStyle(progressFilter === 'ALL')} onClick={() => setProgressFilter('ALL')}>
+                    All ({sessionProgress.length})
+                  </button>
+                  <button type="button" style={tabStyle(progressFilter === 'ONGOING')} onClick={() => setProgressFilter('ONGOING')}>
+                    Ongoing ({ongoingProgressCount})
+                  </button>
+                  <button type="button" style={tabStyle(progressFilter === 'COMPLETED')} onClick={() => setProgressFilter('COMPLETED')}>
+                    Completed ({completedProgressCount})
+                  </button>
+                </div>
+              </div>
               {queueLoading ? (
                 <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Loading…</div>
-              ) : sessionProgress.length > 0 ? (
+              ) : visibleProgress.length > 0 ? (
                 <div style={{ display: 'grid', gap: '0.75rem' }}>
-                  {sessionProgress.map((entry) => {
+                  {visibleProgress.map((entry) => {
                     const activePct = Math.min(100, (entry.completed / entry.total) * 100);
                     const cancelPct = Math.min(100 - activePct, (entry.cancelled / entry.total) * 100);
                     return (
@@ -383,7 +430,7 @@ export const CustomerTab = ({ customers, sessions: _sessions, isActive }: Custom
                 </div>
               ) : (
                 <div style={{ color: 'var(--text-muted)', fontSize: '0.95rem' }}>
-                  {queueItems.length === 0 ? 'No billing data yet.' : 'No multi-session packages found.'}
+                  {sessionProgress.length === 0 ? 'No billing data yet.' : `No ${progressFilter.toLowerCase()} sessions.`}
                 </div>
               )}
             </section>
@@ -473,6 +520,7 @@ export const CustomerTab = ({ customers, sessions: _sessions, isActive }: Custom
                         <th style={{ padding: '0.4rem 0.6rem', color: 'var(--text-muted)', fontWeight: 600 }}>Description</th>
                         <th style={{ padding: '0.4rem 0.6rem', color: 'var(--text-muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>Date</th>
                         <th style={{ padding: '0.4rem 0.6rem', color: 'var(--text-muted)', fontWeight: 600, textAlign: 'right', whiteSpace: 'nowrap' }}>Amount</th>
+                        <th style={{ padding: '0.4rem 0.6rem', color: 'var(--text-muted)', fontWeight: 600, textAlign: 'center', whiteSpace: 'nowrap' }}>Attended</th>
                         <th style={{ padding: '0.4rem 0.6rem', color: 'var(--text-muted)', fontWeight: 600, textAlign: 'center', whiteSpace: 'nowrap' }}>Status</th>
                       </tr>
                     </thead>
@@ -498,6 +546,19 @@ export const CustomerTab = ({ customers, sessions: _sessions, isActive }: Custom
                           <td style={{ padding: '0.45rem 0.6rem' }}>{item.item_description}</td>
                           <td style={{ padding: '0.45rem 0.6rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{formatDate(item.date)}</td>
                           <td style={{ padding: '0.45rem 0.6rem', textAlign: 'right', fontWeight: 500 }}>{formatCurrency(item.taxed_total)}</td>
+                          <td style={{ padding: '0.45rem 0.6rem', textAlign: 'center' }}>
+                            {item.type === 'SERVICE' ? (
+                              <input
+                                type="checkbox"
+                                checked={!!item.attended}
+                                disabled={item.status === 'CANCELLED'}
+                                onChange={() => toggleAttendance(item.line_id)}
+                                style={{ cursor: item.status === 'CANCELLED' ? 'not-allowed' : 'pointer' }}
+                              />
+                            ) : (
+                              <span style={{ color: 'var(--text-muted)' }}>—</span>
+                            )}
+                          </td>
                           <td style={{ padding: '0.45rem 0.6rem', textAlign: 'center' }}>
                             <span style={{ display: 'inline-block', padding: '0.15rem 0.55rem', borderRadius: '999px', fontSize: '0.75rem', fontWeight: 600, ...statusBadge(item.status) }}>
                               {item.status}
