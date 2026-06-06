@@ -211,7 +211,7 @@ export const ReceiptTemplate: React.FC<ReceiptTemplateProps> = ({
                         <td className="rt-right"><strong>{r(grandTotal)}</strong></td>
                     </tr>
                     {oldBalanceAmount > 0 && (
-                        <tr className="rt-grand">
+                        <tr className="rt-grand rt-grand-inner">
                             <td colSpan={3} className="rt-label">
                                 OLD BALANCE DUE AMOUNT ({oldBalanceBillRef})
                             </td>
@@ -219,7 +219,7 @@ export const ReceiptTemplate: React.FC<ReceiptTemplateProps> = ({
                         </tr>
                     )}
                     {safePaid > 0 && (
-                        <tr className="rt-grand">
+                        <tr className="rt-grand rt-grand-inner">
                             <td colSpan={3} className="rt-label">AMOUNT PAID ON {displayDate}</td>
                             <td className="rt-right">{r(safePaid)}</td>
                         </tr>

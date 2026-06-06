@@ -240,7 +240,7 @@ declare global {
       billingRefundCredit: (payload: { customerId: string; amount: number; note?: string }) => Promise<{ success: boolean; refunded?: number; advance_credit?: number; error?: string }>;
       billingGetTaxInvoices: () => Promise<{ success: boolean; data?: TaxInvoice[]; error?: string }>;
       billingGetCustomerLedger: (customerId: string) => Promise<{ success: boolean; entries?: CreditLedgerEntry[]; error?: string }>;
-      saveReceiptPdf: (filename: string) => Promise<{ success: boolean; path?: string }>;
+      saveReceiptPdf: (filename: string) => Promise<{ success: boolean; path?: string; cancelled?: boolean }>;
     };
   }
 }

@@ -2089,7 +2089,7 @@
 .rt-client-table {
   width: 100%;
   border-collapse: collapse;
-  margin-bottom: 8px;
+  margin-bottom: 0;
 }
 
 .rt-client-table td {
@@ -2127,7 +2127,7 @@
 }
 
 .rt-products-table {
-  margin-top: 10px;
+  margin-top: -1px;
 }
 
 .rt-table th,
@@ -2149,19 +2149,26 @@
 .rt-right  { text-align: right; }
 .rt-label  { text-align: right; padding-right: 10px; font-size: 10.5px; }
 
-/* Summary rows (SUB TOTAL / DISCOUNT) — no top border */
-.rt-summary td { border-top: none; }
+/* Summary rows (SUB TOTAL / DISCOUNT) — no top/bottom border, only left/right */
+.rt-summary td { border-top: none; border-bottom: none; }
 
-/* TOTAL (A) / TOTAL (B) rows */
+/* TOTAL (A) / TOTAL (B) rows — top border closes the group */
 .rt-section-total td { border-top: 1.5px solid #000 !important; }
 
-/* Grand summary block rows */
+/* GRAND TOTAL (A+B) row — top border separator, no bottom border */
 .rt-grand td {
   border-top: 1.5px solid #000;
+  border-bottom: none;
   font-size: 10.5px;
 }
 
-/* BALANCE DUE row — double border */
+/* OLD BALANCE / AMOUNT PAID rows — no top or bottom border */
+.rt-grand-inner td {
+  border-top: none !important;
+  border-bottom: none !important;
+}
+
+/* BALANCE DUE row — double border closes grand block */
 .rt-balance-row td {
   border-top: 2px solid #000 !important;
   border-bottom: 2px solid #000 !important;

@@ -544,7 +544,7 @@ export default function App() {
         : '';
 
       setReceiptPreviewData({
-        billNo: formatReceiptId(result.receiptId || ''),
+        billNo: result.receiptId || '',
         billDate: new Date().toISOString().split('T')[0],
         clientName,
         clientPhone: normalizedPhone,
