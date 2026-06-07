@@ -67,6 +67,7 @@ export interface Bill {
   placeOfSupply?: string;
   serviceDiscount?: string;
   productDiscount?: string;
+  invoiceType?: string;
 }
 
 export interface Customer {
@@ -87,6 +88,8 @@ export interface ElectronAPI {
     savePdf: (filename: string) => Promise<{ success: boolean; path?: string }>;
     getSessions: () => Promise<{ success: boolean; data: Record<string, unknown> }>;
     saveSessions: (data: Record<string, unknown>) => Promise<{ success: boolean }>;
+    billingProcessPayment: (payload: any) => Promise<any>;
+    billingReeditReceipt: (payload: any) => Promise<any>;
 }
 
 export interface InventoryItem {

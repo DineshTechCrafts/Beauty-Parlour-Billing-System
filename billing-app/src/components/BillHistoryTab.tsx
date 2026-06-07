@@ -18,7 +18,7 @@ export const BillHistoryTab: React.FC<BillHistoryTabProps> = ({ bills, onEdit })
     return (
         <div className="card no-print">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                <h2 className="section-title"><Icons.History /> Sent Invoices & Clients</h2>
+                <h2 className="section-title"><Icons.History /> Receipt Archive</h2>
             </div>
 
             <div className="table-wrapper">
@@ -46,9 +46,22 @@ export const BillHistoryTab: React.FC<BillHistoryTabProps> = ({ bills, onEdit })
                                     <td style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>{bill.clientPhone || '—'}</td>
                                     <td style={{ fontWeight: 800, color: 'var(--primary)' }}>₹{Number(bill.total).toLocaleString()}</td>
                                     <td style={{ textAlign: 'center' }}>
-                                        <button className="btn btn-secondary btn-sm" onClick={(e) => { e.stopPropagation(); onEdit(bill); }}>
-                                            Re-edit
-                                        </button>
+                                        {(() => {
+                                            const isSameMonth = new Date(bill.date).getMonth() === new Date().getMonth() && new Date(bill.date).getFullYear() === new Date().getFullYear();
+                                            const isDraft = bill.invoiceType === 'Draft Receipt';
+                                            const canEdit = isSameMonth && isDraft;
+                                            return (
+                                                <button
+                                                    className="btn btn-secondary btn-sm"
+                                                    onClick={(e) => { e.stopPropagation(); if (canEdit) onEdit(bill); }}
+                                                    disabled={!canEdit}
+                                                    title={!canEdit ? 'Cannot edit receipts that are already invoiced, attended, or from a previous month.' : 'Edit this pending receipt'}
+                                                    style={{ opacity: canEdit ? 1 : 0.5, cursor: canEdit ? 'pointer' : 'not-allowed' }}
+                                                >
+                                                    Re-edit
+                                                </button>
+                                            );
+                                        })()}
                                     </td>
                                 </tr>
                                 {expandedId === bill.id && (

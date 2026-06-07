@@ -166,6 +166,8 @@ const NameCombobox: React.FC<{
 import { CustomerBillingInfo } from '../types';
 
 interface BillingTabProps {
+    editingReceiptId?: string | null;
+    editingReceiptDate?: string | null;
     clientName: string;
     setClientName: (v: string) => void;
     clientPhone: string;
@@ -372,6 +374,7 @@ const ComboSelect: React.FC<{
 };
 
 export const BillingTab: React.FC<BillingTabProps> = ({
+    editingReceiptId,
     clientName, setClientName, clientPhone, setClientPhone, clientAddress, setClientAddress,
     placeOfSupply, setPlaceOfSupply,
     productItems, setProductItems, serviceItems, setServiceItems,
@@ -978,22 +981,25 @@ export const BillingTab: React.FC<BillingTabProps> = ({
                             <input
                                 type="number"
                                 className="form-control"
-                                placeholder="Leave blank — items only"
+                                placeholder={editingReceiptId ? 'Payments locked during re-edit' : 'Leave blank — items only'}
                                 min="0"
                                 step="0.01"
                                 value={paymentAmount}
                                 onChange={e => setPaymentAmount(e.target.value)}
+                                disabled={!!editingReceiptId}
                             />
                         </div>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', color: 'var(--text-secondary)', cursor: 'pointer', userSelect: 'none' }}>
-                            <input
-                                type="checkbox"
-                                checked={billReceiptFirst}
-                                onChange={e => setBillReceiptFirst(e.target.checked)}
-                                style={{ width: 14, height: 14 }}
-                            />
-                            Apply payment to this receipt first
-                        </label>
+                        {!editingReceiptId && (
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', color: 'var(--text-secondary)', cursor: 'pointer', userSelect: 'none' }}>
+                                <input
+                                    type="checkbox"
+                                    checked={billReceiptFirst}
+                                    onChange={e => setBillReceiptFirst(e.target.checked)}
+                                    style={{ width: 14, height: 14 }}
+                                />
+                                Apply payment to this receipt first
+                            </label>
+                        )}
                     </div>
 
                     <button
@@ -1002,7 +1008,7 @@ export const BillingTab: React.FC<BillingTabProps> = ({
                         disabled={isPhoneLocked || isProcessing}
                         style={{ opacity: (isPhoneLocked || isProcessing) ? 0.5 : 1, cursor: (isPhoneLocked || isProcessing) ? 'not-allowed' : 'pointer' }}
                     >
-                        <Icons.Save /> {isProcessing ? 'Saving…' : 'Generate Receipt'}
+                        <Icons.Save /> {isProcessing ? 'Saving…' : (editingReceiptId ? 'Update Receipt' : 'Generate Receipt')}
                     </button>
                 </div>
             </div>

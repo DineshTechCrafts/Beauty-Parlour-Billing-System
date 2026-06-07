@@ -13,7 +13,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
         { id: 'catalog', label: 'Services Menu', icon: <Icons.Tag /> },
         { id: 'products', label: 'Products Menu', icon: <Icons.ShoppingBag /> },
         { id: 'inventory', label: 'Catalog Records', icon: <Icons.Package /> },
-        { id: 'history', label: 'Invoice Archive', icon: <Icons.History /> },
+        { id: 'history', label: 'Receipt Archive', icon: <Icons.History /> },
         { id: 'customers', label: 'Customers', icon: <Icons.Users /> },
         { id: 'ledger', label: 'Credit Ledger', icon: <Icons.Ledger /> },
         { id: 'taxreport', label: 'Tax Report', icon: <Icons.BarChart /> },

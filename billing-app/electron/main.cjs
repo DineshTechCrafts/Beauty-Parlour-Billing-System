@@ -496,13 +496,92 @@ ipcMain.handle('get-inventory', async () => {
 ipcMain.handle('get-bills', async () => {
     try {
         const dataDir = resolveDataDir();
-        const billsFile = path.join(dataDir, 'bills.csv');
+        const billing = loadBilling(dataDir);
+        const sessions = loadSessionsRaw(dataDir);
 
-        if (fs.existsSync(billsFile)) {
-            const data = fs.readFileSync(billsFile, 'utf8');
-            return { success: true, data: data };
-        }
-        return { success: true, data: null };
+        const sanitize = (val) => {
+            const str = String(val ?? '');
+            return (str.includes(',') || str.includes('"') || str.includes('\n'))
+                ? `"${str.replace(/"/g, '""')}"` : str;
+        };
+
+        const fullHeader = 'BillId,Date,ClientName,ClientPhone,ClientAddress,SubTotal,Discount,CGST,SGST,Total,ItemDescription,Price,Quantity,Amount,ServiceTotal,ProductTotal,TaxableAmount,GSTTotal,GstRate,BillingMode,PlaceOfSupply,BuyerGstin,BuyerLegalName,BuyerStateCode,IGST,ReverseCharge,InvoiceType,SacHsnCode,Unit';
+        
+        let rows = fullHeader + '\n';
+        
+        const itemsByReceipt = {};
+        billing.receipt_items.forEach(item => {
+            if (!itemsByReceipt[item.receipt_id]) itemsByReceipt[item.receipt_id] = [];
+            itemsByReceipt[item.receipt_id].push(item);
+        });
+
+        const sortedReceipts = [...billing.receipts].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+        sortedReceipts.forEach(receipt => {
+            const items = itemsByReceipt[receipt.receipt_id] || [];
+            if (items.length === 0) return;
+
+            const [clientPhone, ...nameParts] = (receipt.customer_id || '').split('::');
+            const clientName = nameParts.join('::');
+            
+            const customerInfo = sessions[receipt.customer_id]?._customer || {};
+            const clientAddress = customerInfo.address || '';
+            const buyerState = customerInfo.stateCode || SELLER_STATE;
+
+            const subTotal = roundMoney(items.reduce((s, u) => s + u.amount, 0));
+            const discountTotal = roundMoney(items.reduce((s, u) => s + u.discount, 0));
+            const taxableAmount = roundMoney(subTotal - discountTotal);
+            const serviceTotal = roundMoney(items.filter(u => u.type === 'SERVICE').reduce((s, u) => s + (u.amount - u.discount), 0));
+            const productTotal = roundMoney(items.filter(u => u.type === 'PRODUCT').reduce((s, u) => s + (u.amount - u.discount), 0));
+            const gstTotalCalc = roundMoney(items.reduce((s, u) => s + roundMoney((u.amount - u.discount) * u.gst_rate / 100), 0));
+
+            let cgst = 0, sgst = 0, igst = 0;
+            if (buyerState === SELLER_STATE) {
+                cgst = roundMoney(gstTotalCalc / 2);
+                sgst = roundMoney(gstTotalCalc - cgst);
+            } else {
+                igst = gstTotalCalc;
+            }
+            const total = roundMoney(taxableAmount + gstTotalCalc);
+
+            const rates = [...new Set(items.map(u => u.gst_rate))];
+            const billGstRate = rates.length === 1 ? rates[0] : null;
+
+            const isEditable = receipt.mode === 'ITEMS_ONLY' && items.every(i => i.status === 'PENDING' && !i.attended);
+            const invoiceTypeStr = isEditable ? 'Draft Receipt' : 'Locked Receipt';
+
+            items.forEach(entry => {
+                rows += [
+                    sanitize(receipt.receipt_id),
+                    sanitize(receipt.receipt_date),
+                    sanitize(clientName),
+                    sanitize(clientPhone),
+                    sanitize(clientAddress),
+                    sanitize(subTotal),
+                    sanitize(discountTotal),
+                    sanitize(cgst),
+                    sanitize(sgst),
+                    sanitize(total),
+                    sanitize(entry.item_description),
+                    sanitize(entry.price),
+                    sanitize(1), // quantity is 1 per expanded row
+                    sanitize(entry.amount),
+                    sanitize(serviceTotal),
+                    sanitize(productTotal),
+                    sanitize(taxableAmount),
+                    sanitize(gstTotalCalc),
+                    sanitize(billGstRate ?? ''),
+                    sanitize('b2c'),
+                    sanitize(buyerState),
+                    '', '', sanitize(SELLER_STATE), sanitize(igst), 'N',
+                    sanitize(invoiceTypeStr),
+                    sanitize(entry.sac_hsn_code),
+                    sanitize(entry.unit)
+                ].join(',') + '\n';
+            });
+        });
+
+        return { success: true, data: rows };
     } catch (error) {
         console.error('Failed to get bills:', error);
         return { success: false, error: error.message };
@@ -1023,6 +1102,71 @@ ipcMain.handle('billing:init', async () => {
         return { success: true, rebuild, reconErrors };
     } catch (error) {
         console.error('billing:init failed:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle('billing:reedit-receipt', async (event, payload) => {
+    try {
+        const dataDir = resolveDataDir();
+        const billing = loadBilling(dataDir);
+        
+        const receiptId = payload.receiptId;
+        const customerId = payload.customerId;
+        
+        const oldItems = billing.receipt_items.filter(i => i.receipt_id === receiptId);
+        if (oldItems.some(i => i.status !== 'PENDING' || i.attended)) {
+            return { success: false, error: 'Cannot re-edit receipt because some items have been invoiced, cancelled, or attended.' };
+        }
+        
+        const firstOldItemIndex = billing.receipt_items.findIndex(i => i.receipt_id === receiptId);
+        if (firstOldItemIndex === -1) {
+            return { success: false, error: 'Original receipt items not found.' };
+        }
+        
+        billing.receipt_items = billing.receipt_items.filter(i => i.receipt_id !== receiptId);
+        
+        const newItems = [];
+        let lineIdx = 1;
+        
+        for (const item of payload.items) {
+            const qty = Math.max(1, Math.floor(Number(item.qty || 1)));
+            const price = roundMoney(Number(item.price));
+            const discount = roundMoney(Number(item.discount || 0));
+            const netTaxable = roundMoney(price - discount);
+            const gstRate = Number(item.gstRate || 0);
+            const taxedTotal = roundMoney(netTaxable * (1 + gstRate / 100));
+
+            for (let u = 0; u < qty; u++) {
+                newItems.push({
+                    line_id: `${receiptId}#${lineIdx}`,
+                    receipt_id: receiptId,
+                    customer_id: customerId,
+                    product_code: item.catalogId || '',
+                    item_description: item.description,
+                    type: item.type || 'SERVICE',
+                    price,
+                    amount: price,
+                    discount,
+                    gst_rate: gstRate,
+                    taxed_total: taxedTotal,
+                    sac_hsn_code: item.sacHsnCode || '',
+                    unit: item.unit || 'NOS',
+                    status: 'PENDING',
+                    invoiced_in_seq: null
+                });
+                lineIdx++;
+            }
+        }
+        
+        billing.receipt_items.splice(firstOldItemIndex, 0, ...newItems);
+        
+        saveBilling(dataDir, billing);
+        updateSessionCache(dataDir, customerId, billing, { address: payload.address, stateCode: payload.stateCode });
+        
+        return { success: true, receiptId, mode: 'ITEMS_ONLY', gstSeq: null };
+    } catch (error) {
+        console.error('billing:reedit-receipt failed:', error);
         return { success: false, error: error.message };
     }
 });

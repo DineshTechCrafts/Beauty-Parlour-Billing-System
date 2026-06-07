@@ -119,6 +119,8 @@ export default function App() {
   const [billReceiptFirst, setBillReceiptFirst] = useState(false);
   const [customerBillingInfo, setCustomerBillingInfo] = useState<CustomerBillingInfo | null>(null);
   const [nextReceiptId, setNextReceiptId] = useState<string | null>(null);
+  const [editingReceiptId, setEditingReceiptId] = useState<string | null>(null);
+  const [editingReceiptDate, setEditingReceiptDate] = useState<string | null>(null);
 
   const printRef = useRef<HTMLDivElement>(null);
 
@@ -232,6 +234,7 @@ export default function App() {
       gstTotal: indexOf('GSTTotal'),
       gstRate: indexOf('GstRate'),
       placeOfSupply: indexOf('PlaceOfSupply'),
+      invoiceType: indexOf('InvoiceType', 26),
     };
 
     const valueAt = (cols: string[], idx: number) => (idx >= 0 && idx < cols.length ? cols[idx] : '');
@@ -259,6 +262,7 @@ export default function App() {
           gstRate: valueAt(cols, indexes.gstRate),
           total: valueAt(cols, indexes.total),
           placeOfSupply: valueAt(cols, indexes.placeOfSupply) || undefined,
+          invoiceType: valueAt(cols, indexes.invoiceType) || undefined,
           items: []
         });
       }
@@ -360,9 +364,9 @@ export default function App() {
 
   const onEditBill = (bill: Bill) => {
     setActiveTab('billing');
-    const sequenceMatch = String(bill.id || '').match(/(\d+)$/);
-    const parsedSequence = sequenceMatch ? Number(sequenceMatch[1]) : Number(bill.id);
-    setCurrentBillId(Number.isFinite(parsedSequence) && parsedSequence > 0 ? parsedSequence : 1);
+    setEditingReceiptId(bill.id);
+    setEditingReceiptDate(bill.date);
+    setPaymentAmount('0');
     setClientName(bill.clientName);
     setClientPhone(bill.clientPhone || '');
     setClientAddress(bill.clientAddress || '');
@@ -516,7 +520,17 @@ export default function App() {
     };
 
     try {
-      const result = await window.electronAPI.billingProcessPayment(payload);
+      let result;
+      if (editingReceiptId) {
+        result = await window.electronAPI.billingReeditReceipt({
+          ...payload,
+          receiptId: editingReceiptId,
+          receiptDate: editingReceiptDate,
+        });
+      } else {
+        result = await window.electronAPI.billingProcessPayment(payload);
+      }
+      
       if (!result.success) {
         showToast(result.error || 'Failed to process payment', 'error');
         setIsProcessing(false);
@@ -634,6 +648,8 @@ export default function App() {
     setBillReceiptFirst(false);
     setCustomerBillingInfo(null);
     setNextReceiptId(null);
+    setEditingReceiptId(null);
+    setEditingReceiptDate(null);
     setReceiptLevelDiscount(0);
     setReceiptPreviewData(null);
     fetchNextBillId();
@@ -715,7 +731,7 @@ export default function App() {
               {activeTab === 'catalog' && 'Price Catalog Definitions'}
               {activeTab === 'products' && 'Products Menu'}
               {activeTab === 'inventory' && 'Inventory Records'}
-              {activeTab === 'history' && 'Invoice Archive'}
+              {activeTab === 'history' && 'Receipt Archive'}
               {activeTab === 'customers' && 'Customer Intelligence'}
               {activeTab === 'ledger' && 'Credit Ledger'}
               {activeTab === 'taxreport' && 'Tax Report'}
@@ -734,6 +750,8 @@ export default function App() {
 
           {activeTab === 'billing' && !producedBill && (
             <BillingTab
+              editingReceiptId={editingReceiptId}
+              editingReceiptDate={editingReceiptDate}
               clientName={clientName} setClientName={setClientName}
               clientPhone={clientPhone} setClientPhone={setClientPhone}
               clientAddress={clientAddress} setClientAddress={setClientAddress}
