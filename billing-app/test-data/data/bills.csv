@@ -1,0 +1,2 @@
+BillId,Date,ClientName,ClientPhone,ClientAddress,SubTotal,Discount,CGST,SGST,Total,ItemDescription,Price,Quantity,Amount,ServiceTotal,ProductTotal,TaxableAmount,GSTTotal,GstRate,BillingMode,PlaceOfSupply,BuyerGstin,BuyerLegalName,BuyerStateCode,IGST,ReverseCharge,InvoiceType,SacHsnCode,Unit
+2,2026-06-08 05:30:00,Client B,2222222222,,500,0,0,0,500,Service B,500,1,500,500,0,500,0,0,b2c,33,,,33,0,N,Tax Invoice,,NOS

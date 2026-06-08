@@ -366,7 +366,8 @@ export default function App() {
     setActiveTab('billing');
     setEditingReceiptId(bill.id);
     setEditingReceiptDate(bill.date);
-    setPaymentAmount('0');
+    setPaymentAmount('');
+    setBillReceiptFirst(false);
     setClientName(bill.clientName);
     setClientPhone(bill.clientPhone || '');
     setClientAddress(bill.clientAddress || '');

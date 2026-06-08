@@ -547,7 +547,7 @@ ipcMain.handle('get-bills', async () => {
             const rates = [...new Set(items.map(u => u.gst_rate))];
             const billGstRate = rates.length === 1 ? rates[0] : null;
 
-            const isEditable = receipt.mode === 'ITEMS_ONLY' && items.every(i => i.status === 'PENDING' && !i.attended);
+            const isEditable = receipt.mode !== 'PAYMENT_ONLY' && items.length > 0 && items.every(i => i.status === 'PENDING' && !i.attended);
             const invoiceTypeStr = isEditable ? 'Draft Receipt' : 'Locked Receipt';
 
             items.forEach(entry => {

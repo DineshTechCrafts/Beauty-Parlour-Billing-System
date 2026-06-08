@@ -1,0 +1,46 @@
+{
+  "1111111111::Client A": {
+    "_billing": {
+      "outstanding": 1000,
+      "advance_credit": 100,
+      "current_receipt_base": 1
+    },
+    "_customer": {
+      "address": "",
+      "state_code": "33"
+    }
+  },
+  "2222222222::Client B": {
+    "_billing": {
+      "outstanding": 0,
+      "advance_credit": 0,
+      "current_receipt_base": 2
+    },
+    "_customer": {
+      "address": "",
+      "state_code": "33"
+    }
+  },
+  "3333333333::Client C": {
+    "_billing": {
+      "outstanding": 90,
+      "advance_credit": 0,
+      "current_receipt_base": 3
+    },
+    "_customer": {
+      "address": "",
+      "state_code": "33"
+    }
+  },
+  "4444444444::Client D": {
+    "_billing": {
+      "outstanding": 500,
+      "advance_credit": 0,
+      "current_receipt_base": 4
+    },
+    "_customer": {
+      "address": "",
+      "state_code": "33"
+    }
+  }
+}
