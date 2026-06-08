@@ -559,7 +559,7 @@ export default function App() {
       }
 
       const oldBalRef = oldLastReceipt
-        ? `BILL:${oldLastReceipt.id.split(' ')[0]}, DATED:${formatDDMMYYYY(oldLastReceipt.date)}`
+        ? `BILL:${oldLastReceipt.id}, DATED:${formatDDMMYYYY(oldLastReceipt.date)}`
         : '';
 
       setReceiptPreviewData({
