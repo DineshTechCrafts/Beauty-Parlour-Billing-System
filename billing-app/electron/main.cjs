@@ -923,6 +923,7 @@ const processPayment = (dataDir, payload) => {
 
     // Step 7 — create tax invoice if units covered
     let gstSeq = null;
+    const newGstInvoices = [];
     if (covered.length > 0) {
         gstSeq = billing.counters.gst_seq;
         billing.counters.gst_seq += 1;
@@ -1002,6 +1003,37 @@ const processPayment = (dataDir, payload) => {
 
         // Write to bills.csv for history-tab compatibility
         appendInvoiceToCsv(dataDir, billing.tax_invoices.filter(e => e.gst_seq === gstSeq));
+
+        const invoiceData = {
+            gst_seq: gstSeq,
+            date: today,
+            clientName: clientName,
+            clientPhone: clientPhone,
+            clientAddress: payload.address || '',
+            services: covered.filter(u => u.type === 'SERVICE').map(u => ({
+                description: u.item_description,
+                sac_hsn_code: u.sac_hsn_code,
+                price: u.price,
+                amount: u.amount,
+                discount: u.discount
+            })),
+            products: covered.filter(u => u.type === 'PRODUCT').map(u => ({
+                description: u.item_description,
+                sac_hsn_code: u.sac_hsn_code,
+                price: u.price,
+                amount: u.amount,
+                discount: u.discount,
+                quantity: 1
+            })),
+            subTotal: subTotal - discountTotal,
+            gstRate: billGstRate || 0,
+            cgst: cgst,
+            sgst: sgst,
+            grandTotal: total,
+            netAmount: Math.round(total)
+        };
+        invoiceData.roundOff = roundMoney(invoiceData.netAmount - invoiceData.grandTotal);
+        newGstInvoices.push(invoiceData);
     }
 
     // Step 8 — remaining becomes advance credit
@@ -1023,8 +1055,7 @@ const processPayment = (dataDir, payload) => {
     return {
         success: true,
         receiptId,
-        mode,
-        gstSeq,
+        gstInvoices: newGstInvoices,
         outstanding: roundMoney(getOutstanding(billing, customerId)),
         advanceCredit: getAdvanceCredit(billing, customerId)
     };
@@ -1414,6 +1445,35 @@ ipcMain.handle('save-pdf', async (event, filename) => {
         return { success: true, path: pdfPath };
     } catch (error) {
         console.error('Failed to save PDF:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// Save GST PDF
+ipcMain.handle('save-gst-pdf', async (event, filename) => {
+    try {
+        const dataDir = resolveDataDir();
+        const win = BrowserWindow.fromWebContents(event.sender);
+        const pdfData = await win.webContents.printToPDF({
+            printBackground: true,
+            pageSize: 'A4',
+            marginsType: 1
+        });
+
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const monthFolder = path.join(dataDir, 'gst-invoices', `${year}-${month}`);
+        if (!fs.existsSync(monthFolder)) {
+            fs.mkdirSync(monthFolder, { recursive: true });
+        }
+
+        const pdfPath = path.join(monthFolder, `${filename}.pdf`);
+        fs.writeFileSync(pdfPath, pdfData);
+
+        return { success: true, path: pdfPath };
+    } catch (error) {
+        console.error('Failed to save GST PDF:', error);
         return { success: false, error: error.message };
     }
 });

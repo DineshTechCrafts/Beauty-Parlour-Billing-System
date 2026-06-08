@@ -14,6 +14,7 @@ import { TaxReportTab } from './components/TaxReportTab';
 import { Toast } from './components/Toast';
 import { PrintTemplate } from './components/PrintTemplate';
 import { ReceiptTemplate, ReceiptTemplateProps } from './components/ReceiptTemplate';
+import { GstInvoiceTemplate, GstInvoiceTemplateProps } from './components/GstInvoiceTemplate';
 import { InventoryItem, Bill, BillItem, BillRow, Customer, CustomerBillingInfo, ProcessPaymentPayload, BillingItemPayload } from './types';
 import { INITIAL_CATALOG } from './constants';
 
@@ -116,6 +117,7 @@ export default function App() {
   const [receiptLevelDiscount, setReceiptLevelDiscount] = useState(0);
   const [receiptDiscountType, setReceiptDiscountType] = useState<'amount' | 'percent'>('percent');
   const [receiptPreviewData, setReceiptPreviewData] = useState<ReceiptTemplateProps | null>(null);
+  const [gstPreviewData, setGstPreviewData] = useState<GstInvoiceTemplateProps | null>(null);
   const [billReceiptFirst, setBillReceiptFirst] = useState(false);
   const [customerBillingInfo, setCustomerBillingInfo] = useState<CustomerBillingInfo | null>(null);
   const [nextReceiptId, setNextReceiptId] = useState<string | null>(null);
@@ -587,6 +589,33 @@ export default function App() {
         } finally {
           document.body.classList.remove('saving-receipt');
         }
+
+        try {
+            if (result.gstInvoices && result.gstInvoices.length > 0) {
+                for (const invoice of result.gstInvoices) {
+                    setGstPreviewData(invoice);
+                    document.body.classList.add('saving-gst');
+                    
+                    // Wait for React to render the newly set state
+                    await new Promise(r => requestAnimationFrame(r));
+                    await new Promise(r => setTimeout(r, 100));
+                    
+                    try {
+                        const res = await window.electronAPI.saveGstPdf(`Invoice_${invoice.gst_seq}`);
+                        if (!res.success) {
+                            console.error("GST save failed internally:", res.error);
+                        }
+                    } catch (err) {
+                        console.error("saveGstPdf API failed:", err);
+                    } finally {
+                        document.body.classList.remove('saving-gst');
+                    }
+                }
+                setGstPreviewData(null);
+            }
+        } catch (err) {
+            console.error("GST Generation Loop Error:", err);
+        }
       }, 100);
 
       showToast(`Receipt ${result.receiptId} saved`, 'success');
@@ -884,6 +913,14 @@ export default function App() {
       {receiptPreviewData && createPortal(
         <div className="receipt-print-layer">
           <ReceiptTemplate {...receiptPreviewData} />
+        </div>,
+        document.body
+      )}
+
+      {/* Portal print layer — shown only during saving-gst */}
+      {gstPreviewData && createPortal(
+        <div className="gst-print-layer">
+          <GstInvoiceTemplate {...gstPreviewData} />
         </div>,
         document.body
       )}

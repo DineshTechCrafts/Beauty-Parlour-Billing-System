@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getBills: () => ipcRenderer.invoke('get-bills'),
     getNextBillId: () => ipcRenderer.invoke('get-next-bill-id'),
     savePdf: (filename) => ipcRenderer.invoke('save-pdf', filename),
+    saveGstPdf: (filename) => ipcRenderer.invoke('save-gst-pdf', filename),
     getSessions: () => ipcRenderer.invoke('get-sessions'),
     saveSessions: (data) => ipcRenderer.invoke('save-sessions', data),
     // Billing system (billing.json)

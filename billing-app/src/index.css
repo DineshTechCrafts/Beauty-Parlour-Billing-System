@@ -2378,8 +2378,21 @@
   }
   body.saving-receipt .receipt-print-layer {
     display: block !important;
+    position: absolute;
+    top: 0; left: 0; right: 0;
   }
-  .receipt-print-layer .rt-root {
+
+  body.saving-gst #root {
+    display: none !important;
+  }
+  body.saving-gst .gst-print-layer {
+    display: block !important;
+    position: absolute;
+    top: 0; left: 0; right: 0;
+  }
+
+  .receipt-print-layer .rt-root,
+  .gst-print-layer .rt-root {
     max-width: 100%;
     border: none;
     padding: 0;

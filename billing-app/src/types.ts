@@ -87,6 +87,7 @@ export interface ElectronAPI {
     saveBill: (bill: unknown) => Promise<{ success: boolean; error?: string }>;
     getNextBillId: () => Promise<{ success: boolean; data: number }>;
     savePdf: (filename: string) => Promise<{ success: boolean; path?: string }>;
+    saveGstPdf: (filename: string) => Promise<{ success: boolean; path?: string }>;
     getSessions: () => Promise<{ success: boolean; data: Record<string, unknown> }>;
     saveSessions: (data: Record<string, unknown>) => Promise<{ success: boolean }>;
     billingProcessPayment: (payload: any) => Promise<any>;
