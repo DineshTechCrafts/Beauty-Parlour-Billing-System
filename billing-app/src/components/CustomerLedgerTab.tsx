@@ -60,6 +60,7 @@ export const CustomerLedgerTab = ({ customers, isActive }: CustomerLedgerTabProp
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [entries, setEntries] = useState<CreditLedgerEntry[]>([]);
   const [loading, setLoading] = useState(false);
+  const [showInternal, setShowInternal] = useState(false);
 
   const filteredCustomers = useMemo(() => {
     if (!searchQuery.trim()) return customers;
@@ -112,15 +113,20 @@ export const CustomerLedgerTab = ({ customers, isActive }: CustomerLedgerTabProp
     let running = 0;
     let totalIn = 0;
     let totalOut = 0;
-    const entriesWithBalance = entries.map((e) => {
+    const allEntries = entries.map((e) => {
       const delta = balanceDelta(e);
       running = Math.round((running + delta) * 100) / 100;
       if (e.type === 'PAYMENT') totalIn += e.amount;
       if (e.type === 'INVOICE' || e.type === 'REFUND') totalOut += e.amount;
       return { ...e, runningBalance: running };
     });
-    return { entriesWithBalance, totalIn, totalOut, netBalance: running };
-  }, [entries]);
+
+    const filteredEntries = showInternal
+      ? allEntries
+      : allEntries.filter(e => e.type !== 'ADVANCE_CREDIT' && e.type !== 'CREDIT_USED');
+
+    return { entriesWithBalance: filteredEntries, totalIn, totalOut, netBalance: running };
+  }, [entries, showInternal]);
 
   return (
     <div className="no-print" style={{ display: 'flex', gap: '1.5rem', flex: 1 }}>
@@ -180,9 +186,20 @@ export const CustomerLedgerTab = ({ customers, isActive }: CustomerLedgerTabProp
       <section className="card" style={{ flex: 1, minHeight: '60vh', overflowY: 'auto' }}>
         {selectedCustomer ? (
           <div>
-            <header style={{ marginBottom: '1.5rem' }}>
-              <h2 style={{ marginBottom: '0.25rem' }}>{selectedCustomer.name}</h2>
-              <div style={{ color: 'var(--text-muted)' }}>{selectedCustomer.phone || 'No phone captured'}</div>
+            <header style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <h2 style={{ marginBottom: '0.25rem' }}>{selectedCustomer.name}</h2>
+                <div style={{ color: 'var(--text-muted)' }}>{selectedCustomer.phone || 'No phone captured'}</div>
+              </div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: 'var(--text-muted)', cursor: 'pointer', marginTop: '0.5rem' }}>
+                <input
+                  type="checkbox"
+                  checked={showInternal}
+                  onChange={(e) => setShowInternal(e.target.checked)}
+                  style={{ cursor: 'pointer' }}
+                />
+                Show internal credit allocations
+              </label>
             </header>
 
             {/* Summary cards */}
@@ -206,7 +223,7 @@ export const CustomerLedgerTab = ({ customers, isActive }: CustomerLedgerTabProp
               </div>
               <div style={{ padding: '1rem', border: '1px solid rgba(0,0,0,0.05)', borderRadius: '8px' }}>
                 <div style={{ fontSize: '0.78rem', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Transactions</div>
-                <div style={{ fontSize: '1.4rem', fontWeight: 600 }}>{entries.length}</div>
+                <div style={{ fontSize: '1.4rem', fontWeight: 600 }}>{entriesWithBalance.length}</div>
               </div>
             </div>
 
@@ -232,8 +249,10 @@ export const CustomerLedgerTab = ({ customers, isActive }: CustomerLedgerTabProp
                   <tbody>
                     {entriesWithBalance.map((entry) => {
                       const isInformational = entry.type === 'ADVANCE_CREDIT' || entry.type === 'CREDIT_USED';
-                      const moneyIn = entry.type === 'PAYMENT' ? entry.amount : null;
-                      const moneyOut = (entry.type === 'INVOICE' || entry.type === 'REFUND') ? entry.amount : null;
+                      const moneyIn = entry.type === 'PAYMENT' ? entry.amount : (entry.type === 'ADVANCE_CREDIT' ? entry.amount : null);
+                      const moneyOut = (entry.type === 'INVOICE' || entry.type === 'REFUND') ? entry.amount : (entry.type === 'CREDIT_USED' ? entry.amount : null);
+                      const isInflow = entry.type === 'PAYMENT';
+                      const isOutflow = entry.type === 'INVOICE' || entry.type === 'REFUND';
                       return (
                         <tr
                           key={entry.txn_id}
@@ -258,11 +277,11 @@ export const CustomerLedgerTab = ({ customers, isActive }: CustomerLedgerTabProp
                             </span>
                           </td>
                           <td style={{ padding: '0.5rem 0.6rem', fontFamily: 'monospace', color: 'var(--text-muted)' }}>{entry.ref_id}</td>
-                          <td style={{ padding: '0.5rem 0.6rem', textAlign: 'right', fontWeight: 500, color: '#15803d' }}>
+                          <td style={{ padding: '0.5rem 0.6rem', textAlign: 'right', fontWeight: 500, color: isInflow ? '#15803d' : 'var(--text-muted)' }}>
                             {moneyIn !== null ? formatCurrency(moneyIn) : '—'}
                           </td>
-                          <td style={{ padding: '0.5rem 0.6rem', textAlign: 'right', fontWeight: 500, color: '#dc2626' }}>
-                            {moneyOut !== null ? formatCurrency(moneyOut) : (isInformational ? formatCurrency(entry.amount) : '—')}
+                          <td style={{ padding: '0.5rem 0.6rem', textAlign: 'right', fontWeight: 500, color: isOutflow ? '#dc2626' : 'var(--text-muted)' }}>
+                            {moneyOut !== null ? formatCurrency(moneyOut) : '—'}
                           </td>
                           <td style={{ padding: '0.5rem 0.6rem', textAlign: 'right', fontWeight: 600, whiteSpace: 'nowrap' }}>
                             {isInformational ? (

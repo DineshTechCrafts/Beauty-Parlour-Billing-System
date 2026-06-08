@@ -505,7 +505,7 @@ ipcMain.handle('get-bills', async () => {
                 ? `"${str.replace(/"/g, '""')}"` : str;
         };
 
-        const fullHeader = 'BillId,Date,ClientName,ClientPhone,ClientAddress,SubTotal,Discount,CGST,SGST,Total,ItemDescription,Price,Quantity,Amount,ServiceTotal,ProductTotal,TaxableAmount,GSTTotal,GstRate,BillingMode,PlaceOfSupply,BuyerGstin,BuyerLegalName,BuyerStateCode,IGST,ReverseCharge,InvoiceType,SacHsnCode,Unit';
+        const fullHeader = 'BillId,Date,ClientName,ClientPhone,ClientAddress,SubTotal,Discount,CGST,SGST,Total,ItemDescription,Price,Quantity,Amount,ServiceTotal,ProductTotal,TaxableAmount,GSTTotal,GstRate,BillingMode,PlaceOfSupply,BuyerGstin,BuyerLegalName,BuyerStateCode,IGST,ReverseCharge,InvoiceType,SacHsnCode,Unit,Payment';
         
         let rows = fullHeader + '\n';
         
@@ -576,7 +576,8 @@ ipcMain.handle('get-bills', async () => {
                     '', '', sanitize(SELLER_STATE), sanitize(igst), 'N',
                     sanitize(invoiceTypeStr),
                     sanitize(entry.sac_hsn_code),
-                    sanitize(entry.unit)
+                    sanitize(entry.unit),
+                    sanitize(receipt.payment ?? 0)
                 ].join(',') + '\n';
             });
         });

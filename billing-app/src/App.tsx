@@ -235,6 +235,7 @@ export default function App() {
       gstRate: indexOf('GstRate'),
       placeOfSupply: indexOf('PlaceOfSupply'),
       invoiceType: indexOf('InvoiceType', 26),
+      payment: indexOf('Payment', 29),
     };
 
     const valueAt = (cols: string[], idx: number) => (idx >= 0 && idx < cols.length ? cols[idx] : '');
@@ -263,6 +264,7 @@ export default function App() {
           total: valueAt(cols, indexes.total),
           placeOfSupply: valueAt(cols, indexes.placeOfSupply) || undefined,
           invoiceType: valueAt(cols, indexes.invoiceType) || undefined,
+          payment: valueAt(cols, indexes.payment) || undefined,
           items: []
         });
       }
@@ -366,7 +368,7 @@ export default function App() {
     setActiveTab('billing');
     setEditingReceiptId(bill.id);
     setEditingReceiptDate(bill.date);
-    setPaymentAmount('');
+    setPaymentAmount(bill.payment && Number(bill.payment) > 0 ? bill.payment : '');
     setBillReceiptFirst(false);
     setClientName(bill.clientName);
     setClientPhone(bill.clientPhone || '');
@@ -578,6 +580,14 @@ export default function App() {
       await Promise.all([loadCustomerInfo(clientKey), fetchHistory()]);
       setPaymentAmount('');
       setReceiptLevelDiscount(0);
+      const wasEditing = !!editingReceiptId;
+      setEditingReceiptId(null);
+      setEditingReceiptDate(null);
+      setProductItems([]);
+      setServiceItems([createEmptyServiceItem()]);
+      if (wasEditing) {
+        setActiveTab('history');
+      }
     } catch {
       showToast('An error occurred during processing', 'error');
     } finally {

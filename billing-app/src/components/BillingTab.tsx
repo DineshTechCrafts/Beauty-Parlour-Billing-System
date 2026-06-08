@@ -788,6 +788,7 @@ export const BillingTab: React.FC<BillingTabProps> = ({
                                     className="form-control"
                                     placeholder="Enter 10-digit number"
                                     value={clientPhone}
+                                    disabled={!!editingReceiptId}
                                     onChange={e => {
                                         const val = e.target.value.replace(/\D/g, '');
                                         if (val.length <= 10) handlePhoneChange(val);
@@ -801,7 +802,7 @@ export const BillingTab: React.FC<BillingTabProps> = ({
                                 value={clientName}
                                 onChange={setClientName}
                                 suggestions={nameSuggestions}
-                                disabled={isPhoneLocked}
+                                disabled={isPhoneLocked || !!editingReceiptId}
                             />
                         </div>
                         <div className="form-group">
@@ -811,14 +812,14 @@ export const BillingTab: React.FC<BillingTabProps> = ({
                                 className="form-control"
                                 placeholder={isPhoneLocked ? 'Enter phone number first' : '123 Street, City...'}
                                 value={clientAddress}
-                                disabled={isPhoneLocked}
+                                disabled={isPhoneLocked || !!editingReceiptId}
                                 onChange={e => setClientAddress(e.target.value)}
                             />
                         </div>
 
                         <div className="form-group">
                             <label>Place of Supply</label>
-                            <StateSelect value={placeOfSupply} onChange={isPhoneLocked ? () => {} : setPlaceOfSupply} disabled={isPhoneLocked} />
+                            <StateSelect value={placeOfSupply} onChange={(isPhoneLocked || !!editingReceiptId) ? () => {} : setPlaceOfSupply} disabled={isPhoneLocked || !!editingReceiptId} />
                         </div>
                     </div>
 
@@ -981,7 +982,7 @@ export const BillingTab: React.FC<BillingTabProps> = ({
                             <input
                                 type="number"
                                 className="form-control"
-                                placeholder={editingReceiptId ? 'Payments locked during re-edit' : 'Leave blank — items only'}
+                                placeholder={editingReceiptId ? 'Paid amount locked during re-edit' : 'Leave blank — items only'}
                                 min="0"
                                 step="0.01"
                                 value={paymentAmount}

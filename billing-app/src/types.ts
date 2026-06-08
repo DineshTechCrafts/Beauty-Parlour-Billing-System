@@ -68,6 +68,7 @@ export interface Bill {
   serviceDiscount?: string;
   productDiscount?: string;
   invoiceType?: string;
+  payment?: string;
 }
 
 export interface Customer {
