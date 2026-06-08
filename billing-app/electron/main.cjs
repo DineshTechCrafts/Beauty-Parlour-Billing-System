@@ -506,9 +506,9 @@ ipcMain.handle('get-bills', async () => {
         };
 
         const fullHeader = 'BillId,Date,ClientName,ClientPhone,ClientAddress,SubTotal,Discount,CGST,SGST,Total,ItemDescription,Price,Quantity,Amount,ServiceTotal,ProductTotal,TaxableAmount,GSTTotal,GstRate,BillingMode,PlaceOfSupply,BuyerGstin,BuyerLegalName,BuyerStateCode,IGST,ReverseCharge,InvoiceType,SacHsnCode,Unit,Payment';
-        
+
         let rows = fullHeader + '\n';
-        
+
         const itemsByReceipt = {};
         billing.receipt_items.forEach(item => {
             if (!itemsByReceipt[item.receipt_id]) itemsByReceipt[item.receipt_id] = [];
@@ -523,7 +523,7 @@ ipcMain.handle('get-bills', async () => {
 
             const [clientPhone, ...nameParts] = (receipt.customer_id || '').split('::');
             const clientName = nameParts.join('::');
-            
+
             const customerInfo = sessions[receipt.customer_id]?._customer || {};
             const clientAddress = customerInfo.address || '';
             const buyerState = customerInfo.stateCode || SELLER_STATE;
@@ -797,7 +797,7 @@ const processPayment = (dataDir, payload) => {
 
     const mode = hasItems && hasPayment ? 'ITEMS_PAYMENT'
         : hasItems ? 'ITEMS_ONLY'
-        : 'PAYMENT_ONLY';
+            : 'PAYMENT_ONLY';
 
     // Step 1 — assign receipt_id; allocate base for new customer
     if (billing.customer_series[customerId] == null) {
@@ -1111,25 +1111,25 @@ ipcMain.handle('billing:reedit-receipt', async (event, payload) => {
     try {
         const dataDir = resolveDataDir();
         const billing = loadBilling(dataDir);
-        
+
         const receiptId = payload.receiptId;
         const customerId = payload.customerId;
-        
+
         const oldItems = billing.receipt_items.filter(i => i.receipt_id === receiptId);
         if (oldItems.some(i => i.status !== 'PENDING' || i.attended)) {
             return { success: false, error: 'Cannot re-edit receipt because some items have been invoiced, cancelled, or attended.' };
         }
-        
+
         const firstOldItemIndex = billing.receipt_items.findIndex(i => i.receipt_id === receiptId);
         if (firstOldItemIndex === -1) {
             return { success: false, error: 'Original receipt items not found.' };
         }
-        
+
         billing.receipt_items = billing.receipt_items.filter(i => i.receipt_id !== receiptId);
-        
+
         const newItems = [];
         let lineIdx = 1;
-        
+
         for (const item of payload.items) {
             const qty = Math.max(1, Math.floor(Number(item.qty || 1)));
             const price = roundMoney(Number(item.price));
@@ -1159,12 +1159,12 @@ ipcMain.handle('billing:reedit-receipt', async (event, payload) => {
                 lineIdx++;
             }
         }
-        
+
         billing.receipt_items.splice(firstOldItemIndex, 0, ...newItems);
-        
+
         saveBilling(dataDir, billing);
         updateSessionCache(dataDir, customerId, billing, { address: payload.address, stateCode: payload.stateCode });
-        
+
         return { success: true, receiptId, mode: 'ITEMS_ONLY', gstSeq: null };
     } catch (error) {
         console.error('billing:reedit-receipt failed:', error);
@@ -1404,21 +1404,11 @@ ipcMain.handle('save-pdf', async (event, filename) => {
             marginsType: 1
         });
 
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const monthFolder = path.join(dataDir, `${year}-${month}`);
-        if (!fs.existsSync(monthFolder)) {
-            fs.mkdirSync(monthFolder, { recursive: true });
+        const receiptsFolder = path.join(dataDir, 'receipts');
+        if (!fs.existsSync(receiptsFolder)) {
+            fs.mkdirSync(receiptsFolder, { recursive: true });
         }
-        const day = now.getDate();
-        const weekNumber = Math.ceil(day / 7);
-        const weekFolder = path.join(monthFolder, `week${weekNumber}`);
-        if (!fs.existsSync(weekFolder)) {
-            fs.mkdirSync(weekFolder);
-        }
-
-        const pdfPath = path.join(weekFolder, `${filename}.pdf`);
+        const pdfPath = path.join(receiptsFolder, `${filename}.pdf`);
         fs.writeFileSync(pdfPath, pdfData);
 
         return { success: true, path: pdfPath };

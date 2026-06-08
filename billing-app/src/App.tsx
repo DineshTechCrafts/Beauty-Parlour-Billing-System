@@ -576,6 +576,19 @@ export default function App() {
         balanceDue: result.outstanding ?? 0,
       });
 
+      // Auto-save the receipt PDF to data/receipts
+      setTimeout(async () => {
+        document.body.classList.add('saving-receipt');
+        await new Promise(r => requestAnimationFrame(r));
+        await new Promise(r => setTimeout(r, 60));
+        const filename = `receipt-${result.receiptId}-${Date.now()}`;
+        try {
+          await window.electronAPI.savePdf(filename);
+        } finally {
+          document.body.classList.remove('saving-receipt');
+        }
+      }, 100);
+
       showToast(`Receipt ${result.receiptId} saved`, 'success');
       await Promise.all([loadCustomerInfo(clientKey), fetchHistory()]);
       setPaymentAmount('');
