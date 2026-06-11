@@ -26,5 +26,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
     saveReceiptPdf: (filename) => ipcRenderer.invoke('save-receipt-pdf', filename),
     selectFolder: () => ipcRenderer.invoke('select-folder'),
     getConfig: () => ipcRenderer.invoke('get-config'),
-    migrateData: (newPath) => ipcRenderer.invoke('migrate-data', newPath),
+    setAutoSyncDir: (newPath) => ipcRenderer.invoke('set-auto-sync-dir', newPath),
 });

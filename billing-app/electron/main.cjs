@@ -32,15 +32,25 @@ const readConfig = () => {
 };
 
 const resolveDataDir = () => {
-    const config = readConfig();
     let dataDir = path.join(resolveBaseDir(), 'data');
-    if (config.dataDir && typeof config.dataDir === 'string') {
-        dataDir = config.dataDir;
-    }
     if (!fs.existsSync(dataDir)) {
         fs.mkdirSync(dataDir, { recursive: true });
     }
     return dataDir;
+};
+
+const syncToBackup = () => {
+    const config = readConfig();
+    if (config.autoSyncDir && typeof config.autoSyncDir === 'string') {
+        const dataDir = resolveDataDir();
+        if (fs.existsSync(config.autoSyncDir)) {
+            try {
+                fs.cpSync(dataDir, config.autoSyncDir, { recursive: true });
+            } catch (err) {
+                console.error('Auto-sync backup failed:', err);
+            }
+        }
+    }
 };
 
 const safeReadJson = (filePath, fallback) => {
@@ -221,6 +231,7 @@ const combineInventoryState = (dataDir) => {
 const persistInventoryState = (dataDir, payload) => {
     const inventoryFile = path.join(dataDir, 'inventory.json');
     fs.writeFileSync(inventoryFile, JSON.stringify(payload, null, 2), 'utf8');
+    syncToBackup();
 };
 
 const derivePersistencePayload = (items = []) => {
@@ -407,6 +418,7 @@ ipcMain.handle('save-bill', async (event, billData) => {
 
         const finalCsvStr = existingLines.join('\n') + '\n' + newRowsStr;
         fs.writeFileSync(csvFile, finalCsvStr, 'utf8');
+        syncToBackup();
 
         // Update Inventory qty
         const inventoryState = combineInventoryState(dataDir);
@@ -495,6 +507,7 @@ ipcMain.handle('save-sessions', async (event, data) => {
             });
         });
         saveSessionsAtomic(dataDir, merged);
+        syncToBackup();
         return { success: true };
     } catch (error) {
         console.error('Failed to save sessions:', error);
@@ -677,6 +690,7 @@ const writeJsonAtomic = (filePath, data) => {
         fs.closeSync(fd);
     }
     fs.renameSync(tmpPath, filePath);
+    syncToBackup();
 };
 
 const loadBilling = (dataDir) => {
@@ -1461,6 +1475,7 @@ ipcMain.handle('save-pdf', async (event, filename) => {
         }
         const pdfPath = path.join(receiptsFolder, `${filename}.pdf`);
         fs.writeFileSync(pdfPath, pdfData);
+        syncToBackup();
 
         return { success: true, path: pdfPath };
     } catch (error) {
@@ -1490,6 +1505,7 @@ ipcMain.handle('save-gst-pdf', async (event, filename) => {
 
         const pdfPath = path.join(monthFolder, `${filename}.pdf`);
         fs.writeFileSync(pdfPath, pdfData);
+        syncToBackup();
 
         return { success: true, path: pdfPath };
     } catch (error) {
@@ -1515,6 +1531,7 @@ ipcMain.handle('save-receipt-pdf', async (event, filename) => {
             marginsType: 0
         });
         fs.writeFileSync(filePath, pdfData);
+        // Note: intentionally skipping syncToBackup for manual saveReceiptPdf dialog
         return { success: true, path: filePath };
     } catch (error) {
         console.error('Failed to save receipt PDF:', error);
@@ -1549,7 +1566,7 @@ ipcMain.handle('get-config', async () => {
     }
 });
 
-ipcMain.handle('migrate-data', async (event, newPath) => {
+ipcMain.handle('set-auto-sync-dir', async (event, newPath) => {
     try {
         if (!newPath || !fs.existsSync(newPath)) {
             return { success: false, error: 'Invalid destination path' };
@@ -1559,18 +1576,17 @@ ipcMain.handle('migrate-data', async (event, newPath) => {
             return { success: true, message: 'Already using this directory' };
         }
         
-        if (fs.existsSync(oldDataDir)) {
-            fs.cpSync(oldDataDir, newPath, { recursive: true });
-        }
-        
         const configPath = getConfigPath();
         const config = readConfig();
-        config.dataDir = newPath;
+        config.autoSyncDir = newPath;
         fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
+        
+        // Trigger initial sync right away
+        syncToBackup();
         
         return { success: true };
     } catch (error) {
-        console.error('Failed to migrate data:', error);
+        console.error('Failed to set auto-sync backup folder:', error);
         return { success: false, error: error.message };
     }
 });

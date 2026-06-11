@@ -17,7 +17,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({ showToast }) => {
         try {
             const res = await window.electronAPI.getConfig();
             if (res.success && res.config) {
-                setCurrentPath(res.config.currentDataDir || 'Default');
+                setCurrentPath(res.config.autoSyncDir || 'Not Set');
             } else {
                 setCurrentPath('Unable to load path');
             }
@@ -42,23 +42,23 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({ showToast }) => {
             const newPath = folderRes.path;
             
             if (newPath === currentPath) {
-                showToast('This folder is already set as the data directory.', 'success');
+                showToast('This folder is already set as the backup directory.', 'success');
                 return;
             }
 
             setIsMigrating(true);
-            showToast('Migrating data, please wait...', 'success');
+            showToast('Setting backup folder, please wait...', 'success');
 
-            const migrateRes = await window.electronAPI.migrateData(newPath);
+            const migrateRes = await window.electronAPI.setAutoSyncDir(newPath);
             
             if (migrateRes.success) {
                 setCurrentPath(newPath);
-                showToast('Data migration successful. The app will now use the new folder.', 'success');
+                showToast('Backup folder set successfully. Data will be copied here automatically.', 'success');
             } else {
-                showToast(migrateRes.error || 'Data migration failed.', 'error');
+                showToast(migrateRes.error || 'Failed to set backup folder.', 'error');
             }
         } catch (error) {
-            showToast('An unexpected error occurred during migration.', 'error');
+            showToast('An unexpected error occurred.', 'error');
         } finally {
             setIsMigrating(false);
         }
@@ -72,15 +72,15 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({ showToast }) => {
                 </h2>
                 
                 <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '12px', padding: '1.5rem', marginBottom: '1.5rem' }}>
-                    <h3 style={{ fontSize: '1.1rem', marginBottom: '0.5rem', color: '#fff' }}>Cloud Storage Migration / Data Location</h3>
+                    <h3 style={{ fontSize: '1.1rem', marginBottom: '0.5rem', color: '#fff' }}>Auto-Sync Backup Folder</h3>
                     <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.9rem', marginBottom: '1rem', lineHeight: 1.5 }}>
-                        Choose a custom folder (like a Google Drive sync folder) to store your billing data.
-                        This will automatically backup your JSON, CSV, and PDF files to the cloud if the folder is synced.
+                        Choose a custom folder (like a Google Drive sync folder) to automatically backup your billing data.
+                        Your local data remains untouched, and a copy is synced here.
                     </p>
                     
                     <div style={{ marginBottom: '1rem' }}>
                         <label style={{ display: 'block', fontSize: '0.85rem', color: 'rgba(255,255,255,0.5)', marginBottom: '0.5rem' }}>
-                            Current Data Folder
+                            Current Backup Folder
                         </label>
                         <div style={{ 
                             padding: '0.75rem 1rem', 
@@ -102,15 +102,15 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({ showToast }) => {
                         style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
                     >
                         {isMigrating ? (
-                            <>Migrating...</>
+                            <>Setting...</>
                         ) : (
-                            <><Icons.Search /> Browse and Migrate</>
+                            <><Icons.Search /> Browse and Set Folder</>
                         )}
                     </button>
                     
                     {isMigrating && (
                         <p style={{ color: 'var(--secondary)', fontSize: '0.85rem', marginTop: '1rem' }}>
-                            Please do not close the app while data is migrating...
+                            Please wait...
                         </p>
                     )}
                 </div>

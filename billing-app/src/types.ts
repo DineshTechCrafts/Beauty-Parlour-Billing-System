@@ -249,6 +249,9 @@ declare global {
       billingGetTaxInvoices: () => Promise<{ success: boolean; data?: TaxInvoice[]; error?: string }>;
       billingGetCustomerLedger: (customerId: string) => Promise<{ success: boolean; entries?: CreditLedgerEntry[]; error?: string }>;
       saveReceiptPdf: (filename: string) => Promise<{ success: boolean; path?: string; cancelled?: boolean }>;
+      selectFolder: () => Promise<{ success: boolean; path?: string; cancelled?: boolean }>;
+      getConfig: () => Promise<{ success: boolean; config?: any }>;
+      setAutoSyncDir: (newPath: string) => Promise<{ success: boolean; error?: string }>;
     };
   }
 }
