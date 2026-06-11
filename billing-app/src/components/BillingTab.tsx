@@ -806,7 +806,7 @@ export const BillingTab: React.FC<BillingTabProps> = ({
                             />
                         </div>
                         <div className="form-group">
-                            <label>Address / Session Notes</label>
+                            <label>Address</label>
                             <input
                                 type="text"
                                 className="form-control"
