@@ -15,8 +15,28 @@ const resolveBaseDir = () => {
     }
 };
 
+const getConfigPath = () => {
+    return path.join(app.getPath('userData'), 'billing-app-config.json');
+};
+
+const readConfig = () => {
+    try {
+        const configPath = getConfigPath();
+        if (fs.existsSync(configPath)) {
+            return JSON.parse(fs.readFileSync(configPath, 'utf8'));
+        }
+    } catch (error) {
+        console.error('Failed to read config:', error);
+    }
+    return {};
+};
+
 const resolveDataDir = () => {
-    const dataDir = path.join(resolveBaseDir(), 'data');
+    const config = readConfig();
+    let dataDir = path.join(resolveBaseDir(), 'data');
+    if (config.dataDir && typeof config.dataDir === 'string') {
+        dataDir = config.dataDir;
+    }
     if (!fs.existsSync(dataDir)) {
         fs.mkdirSync(dataDir, { recursive: true });
     }
@@ -1498,6 +1518,59 @@ ipcMain.handle('save-receipt-pdf', async (event, filename) => {
         return { success: true, path: filePath };
     } catch (error) {
         console.error('Failed to save receipt PDF:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle('select-folder', async (event) => {
+    try {
+        const win = BrowserWindow.fromWebContents(event.sender);
+        const { canceled, filePaths } = await dialog.showOpenDialog(win, {
+            properties: ['openDirectory']
+        });
+        if (canceled || filePaths.length === 0) {
+            return { success: false, cancelled: true };
+        }
+        return { success: true, path: filePaths[0] };
+    } catch (error) {
+        console.error('Failed to select folder:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle('get-config', async () => {
+    try {
+        const config = readConfig();
+        const currentDataDir = resolveDataDir();
+        return { success: true, config: { ...config, currentDataDir } };
+    } catch (error) {
+        console.error('Failed to get config:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle('migrate-data', async (event, newPath) => {
+    try {
+        if (!newPath || !fs.existsSync(newPath)) {
+            return { success: false, error: 'Invalid destination path' };
+        }
+        const oldDataDir = resolveDataDir();
+        if (oldDataDir === newPath) {
+            return { success: true, message: 'Already using this directory' };
+        }
+        
+        if (fs.existsSync(oldDataDir)) {
+            fs.cpSync(oldDataDir, newPath, { recursive: true });
+        }
+        
+        const configPath = getConfigPath();
+        const config = readConfig();
+        config.dataDir = newPath;
+        fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
+        
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to migrate data:', error);
         return { success: false, error: error.message };
     }
 });

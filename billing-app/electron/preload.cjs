@@ -24,4 +24,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     billingGetCustomerLedger: (customerId) => ipcRenderer.invoke('billing:get-customer-ledger', customerId),
     billingGetTaxInvoices: () => ipcRenderer.invoke('billing:get-tax-invoices'),
     saveReceiptPdf: (filename) => ipcRenderer.invoke('save-receipt-pdf', filename),
+    selectFolder: () => ipcRenderer.invoke('select-folder'),
+    getConfig: () => ipcRenderer.invoke('get-config'),
+    migrateData: (newPath) => ipcRenderer.invoke('migrate-data', newPath),
 });

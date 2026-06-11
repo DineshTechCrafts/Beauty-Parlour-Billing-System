@@ -11,6 +11,7 @@ import { BillHistoryTab } from './components/BillHistoryTab';
 import { CustomerTab } from './components/CustomerTab';
 import { CustomerLedgerTab } from './components/CustomerLedgerTab';
 import { TaxReportTab } from './components/TaxReportTab';
+import { SettingsTab } from './components/SettingsTab';
 import { Toast } from './components/Toast';
 import { PrintTemplate } from './components/PrintTemplate';
 import { ReceiptTemplate, ReceiptTemplateProps } from './components/ReceiptTemplate';
@@ -788,6 +789,7 @@ export default function App() {
               {activeTab === 'customers' && 'Customer Intelligence'}
               {activeTab === 'ledger' && 'Credit Ledger'}
               {activeTab === 'taxreport' && 'Tax Report'}
+              {activeTab === 'settings' && 'Settings'}
             </h1>
             <p>
               {activeTab === 'billing' && 'Generate professional clinic invoices and manage one-time transactions.'}
@@ -798,6 +800,7 @@ export default function App() {
               {activeTab === 'customers' && 'Search loyalty trends, review visit history, and audit session progress.'}
               {activeTab === 'ledger' && 'View per-customer payment and invoice history with running credit balance.'}
               {activeTab === 'taxreport' && 'Filter GST invoices by month and year, then export to Excel.'}
+              {activeTab === 'settings' && 'Configure data storage location and app settings.'}
             </p>
           </header>
 
@@ -877,6 +880,7 @@ export default function App() {
           {activeTab === 'customers' && <CustomerTab customers={customers} sessions={sessions} isActive={activeTab === 'customers'} />}
           {activeTab === 'ledger' && <CustomerLedgerTab customers={customers} isActive={activeTab === 'ledger'} />}
           {activeTab === 'taxreport' && <TaxReportTab isActive={activeTab === 'taxreport'} />}
+          {activeTab === 'settings' && <SettingsTab showToast={showToast} />}
         </div>
       </main>
 
